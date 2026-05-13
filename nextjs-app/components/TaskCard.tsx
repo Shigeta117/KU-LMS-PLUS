@@ -149,14 +149,19 @@ export default function TaskCard({
           inactiveLabel="完了にする"
           activeClass="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950"
         />
-        <div className="w-px bg-slate-100 dark:bg-slate-700" />
-        <ActionButton
-          onClick={() => onToggleHidden(id, is_hidden)}
-          active={is_hidden}
-          activeLabel="表示に戻す"
-          inactiveLabel="非表示"
-          activeClass="text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-700"
-        />
+        {/* 完了済みの課題は非表示ボタンを非表示にして完了/非表示の複合状態を防ぐ */}
+        {!is_completed_manual && (
+          <>
+            <div className="w-px bg-slate-100 dark:bg-slate-700" />
+            <ActionButton
+              onClick={() => onToggleHidden(id, is_hidden)}
+              active={is_hidden}
+              activeLabel="表示に戻す"
+              inactiveLabel="非表示"
+              activeClass="text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-700"
+            />
+          </>
+        )}
       </div>
     </article>
   );

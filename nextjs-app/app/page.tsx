@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchAssignments, updateAssignment } from '@/lib/supabase';
 import type { Assignment, FilterTab } from '@/lib/types';
-import { CheckCircle2, EyeOff, RefreshCw, InboxIcon, Settings } from 'lucide-react';
+import { getDeadlineUrgency } from '@/lib/types';
+import { CheckCircle2, EyeOff, RefreshCw, InboxIcon, Settings, RotateCcw } from 'lucide-react';
 import AuthGuard from '@/components/AuthGuard';
 import FilterBar from '@/components/FilterBar';
 import TaskCard from '@/components/TaskCard';
@@ -18,14 +19,26 @@ export default function HomePage() {
   );
 }
 
+type UndoEntry = {
+  id: string;
+  label: string;
+  rollback: Partial<Pick<Assignment, 'is_completed_manual' | 'is_hidden'>>;
+};
+
 function AssignmentList() {
   const router = useRouter();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState('');
   const [activeTab,   setActiveTab]   = useState<FilterTab>('pending');
-  const [activeCategory, setActiveCategory] = useState('');
+  const [activeCategoryByTab, setActiveCategoryByTab] = useState<Record<FilterTab, string>>({
+    pending: '', completed: '', hidden: '',
+  });
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [undoEntry,   setUndoEntry]   = useState<UndoEntry | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const activeCategory = activeCategoryByTab[activeTab];
 
   // =============================================
   // データ取得
@@ -49,31 +62,71 @@ function AssignmentList() {
   }, [loadData]);
 
   // =============================================
+  // Undo トースト管理
+  // =============================================
+  const showUndo = useCallback((entry: UndoEntry) => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setUndoEntry(entry);
+    undoTimerRef.current = setTimeout(() => setUndoEntry(null), 4000);
+  }, []);
+
+  const handleUndo = useCallback(async () => {
+    if (!undoEntry) return;
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setUndoEntry(null);
+    setAssignments((prev) =>
+      prev.map((a) => (a.id === undoEntry.id ? { ...a, ...undoEntry.rollback } : a))
+    );
+    try {
+      await updateAssignment(undoEntry.id, undoEntry.rollback);
+    } catch {
+      loadData();
+    }
+  }, [undoEntry, loadData]);
+
+  // =============================================
   // 楽観的更新ヘルパー
   // =============================================
   const optimisticUpdate = useCallback(
     async (
       id: string,
-      patch: Partial<Pick<Assignment, 'is_completed_manual' | 'is_hidden'>>
+      patch: Partial<Pick<Assignment, 'is_completed_manual' | 'is_hidden'>>,
+      undoLabel: string
     ) => {
+      const target = assignments.find((a) => a.id === id);
+      if (!target) return;
+
+      const rollback: Partial<Pick<Assignment, 'is_completed_manual' | 'is_hidden'>> = {};
+      if ('is_completed_manual' in patch) rollback.is_completed_manual = target.is_completed_manual;
+      if ('is_hidden' in patch)           rollback.is_hidden           = target.is_hidden;
+
       setAssignments((prev) =>
         prev.map((a) => (a.id === id ? { ...a, ...patch } : a))
       );
+      showUndo({ id, label: undoLabel, rollback });
+
       try {
         await updateAssignment(id, patch);
       } catch {
-        // ロールバック
         loadData();
       }
     },
-    [loadData]
+    [assignments, loadData, showUndo]
   );
 
   const handleToggleComplete = (id: string, current: boolean) =>
-    optimisticUpdate(id, { is_completed_manual: !current });
+    optimisticUpdate(
+      id,
+      { is_completed_manual: !current },
+      current ? '完了を取り消しました' : '完了済みにしました'
+    );
 
   const handleToggleHidden = (id: string, current: boolean) =>
-    optimisticUpdate(id, { is_hidden: !current });
+    optimisticUpdate(
+      id,
+      { is_hidden: !current },
+      current ? '表示に戻しました' : '非表示にしました'
+    );
 
   // =============================================
   // フィルタリング
@@ -89,6 +142,14 @@ function AssignmentList() {
     const matchCat = !activeCategory || a.category === activeCategory;
     return matchTab && matchCat;
   });
+
+  // pending タブのみ期限切れ / 期限内に分けてセクション表示
+  const overdueItems = activeTab === 'pending'
+    ? filtered.filter((a) => getDeadlineUrgency(a.deadline) === 'overdue')
+    : [];
+  const activeItems = activeTab === 'pending'
+    ? filtered.filter((a) => getDeadlineUrgency(a.deadline) !== 'overdue')
+    : filtered;
 
   const categories = [
     ...new Set(assignments.map((a) => a.category).filter(Boolean)),
@@ -151,10 +212,12 @@ function AssignmentList() {
       {/* フィルタバー */}
       <FilterBar
         activeTab={activeTab}
-        onTabChange={(tab) => { setActiveTab(tab); setActiveCategory(''); }}
+        onTabChange={(tab) => setActiveTab(tab)}
         categories={categories}
         activeCategory={activeCategory}
-        onCategoryChange={setActiveCategory}
+        onCategoryChange={(cat) =>
+          setActiveCategoryByTab((prev) => ({ ...prev, [activeTab]: cat }))
+        }
         counts={counts}
       />
 
@@ -182,16 +245,58 @@ function AssignmentList() {
           <EmptyState tab={activeTab} />
         )}
 
-        {!loading &&
-          filtered.map((assignment) => (
-            <TaskCard
-              key={assignment.id}
-              assignment={assignment}
-              onToggleComplete={handleToggleComplete}
-              onToggleHidden={handleToggleHidden}
-            />
-          ))}
+        {!loading && (
+          <>
+            {/* 期限切れセクション（pending タブのみ）*/}
+            {overdueItems.length > 0 && (
+              <>
+                <p className="text-xs font-semibold text-red-500 dark:text-red-400 px-1 pt-1">
+                  期限切れ
+                </p>
+                {overdueItems.map((assignment) => (
+                  <TaskCard
+                    key={assignment.id}
+                    assignment={assignment}
+                    onToggleComplete={handleToggleComplete}
+                    onToggleHidden={handleToggleHidden}
+                  />
+                ))}
+                {activeItems.length > 0 && (
+                  <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 px-1 pt-1">
+                    期限内
+                  </p>
+                )}
+              </>
+            )}
+
+            {/* 通常の課題リスト */}
+            {activeItems.map((assignment) => (
+              <TaskCard
+                key={assignment.id}
+                assignment={assignment}
+                onToggleComplete={handleToggleComplete}
+                onToggleHidden={handleToggleHidden}
+              />
+            ))}
+          </>
+        )}
       </main>
+
+      {/* Undo トースト */}
+      {undoEntry && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none">
+          <div className="pointer-events-auto mx-3 mb-4 sm:max-w-sm w-full bg-slate-800 dark:bg-slate-700 rounded-2xl shadow-xl px-4 py-3 flex items-center gap-3 animate-[slide-up_0.25s_ease-out]">
+            <p className="flex-1 text-sm text-white font-medium">{undoEntry.label}</p>
+            <button
+              onClick={handleUndo}
+              className="flex items-center gap-1.5 text-xs font-semibold text-blue-300 hover:text-blue-200 transition-colors flex-shrink-0"
+            >
+              <RotateCcw size={13} />
+              元に戻す
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

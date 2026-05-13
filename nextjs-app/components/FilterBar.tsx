@@ -57,22 +57,28 @@ export default function FilterBar({
         ))}
       </div>
 
-      {/* カテゴリフィルタ */}
+      {/* カテゴリフィルタ（右端フェードで横スクロールを示唆）*/}
       {categories.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto px-4 py-2 scrollbar-none">
-          <CategoryChip
-            label="すべて"
-            active={activeCategory === ''}
-            onClick={() => onCategoryChange('')}
-          />
-          {categories.map((cat) => (
+        <div className="relative">
+          <div className="flex gap-2 overflow-x-auto px-4 py-2 scrollbar-none">
             <CategoryChip
-              key={cat}
-              label={cat}
-              active={activeCategory === cat}
-              onClick={() => onCategoryChange(cat)}
+              label="すべて"
+              active={activeCategory === ''}
+              onClick={() => onCategoryChange('')}
             />
-          ))}
+            {categories.map((cat) => (
+              <CategoryChip
+                key={cat}
+                label={cat}
+                active={activeCategory === cat}
+                onClick={() => onCategoryChange(cat)}
+              />
+            ))}
+            {/* スクロールエリアの右側に余白を確保 */}
+            <span className="flex-shrink-0 w-6" aria-hidden />
+          </div>
+          {/* 右端グラデーション（スクロール可能であることを示す）*/}
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-slate-800 to-transparent" />
         </div>
       )}
     </div>
