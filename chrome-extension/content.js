@@ -188,30 +188,13 @@ function extractCourseId(url) {
 }
 
 function parseDateRange(text) {
-  // セパレータ: -(ハイフン) –(en dash) 〜 ～ →
-  const SEP = '[-–〜～→]';
-  // "YYYY/MM/DD HH:MM <sep> YYYY/MM/DD HH:MM" — 開始日時と締切日時の両方
-  const full = text.match(
-    new RegExp(
-      `(\\d{4})/(\\d{2})/(\\d{2})\\s+(\\d{2}):(\\d{2})\\s*${SEP}\\s*(\\d{4})/(\\d{2})/(\\d{2})\\s+(\\d{2}):(\\d{2})`
-    )
-  );
-  if (full) {
-    return {
-      start_time: `${full[1]}-${full[2]}-${full[3]}T${full[4]}:${full[5]}:00+09:00`,
-      deadline:   `${full[6]}-${full[7]}-${full[8]}T${full[9]}:${full[10]}:00+09:00`,
-    };
-  }
-  // "<sep> YYYY/MM/DD HH:MM" — 締切のみ
-  const deadlineOnly = text.match(
-    new RegExp(`${SEP}\\s*(\\d{4})/(\\d{2})/(\\d{2})\\s+(\\d{2}):(\\d{2})`)
-  );
-  if (deadlineOnly) {
-    return {
-      start_time: null,
-      deadline:   `${deadlineOnly[1]}-${deadlineOnly[2]}-${deadlineOnly[3]}T${deadlineOnly[4]}:${deadlineOnly[5]}:00+09:00`,
-    };
-  }
+  // テキスト内の "YYYY/MM/DD HH:MM" をすべて抽出（セパレータ依存なし）
+  // 2件以上: 最初 = start_time, 最後 = deadline
+  // 1件: deadline のみ
+  const dates = [...text.matchAll(/(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/g)]
+    .map((m) => `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00+09:00`);
+  if (dates.length >= 2) return { start_time: dates[0], deadline: dates[dates.length - 1] };
+  if (dates.length === 1) return { start_time: null, deadline: dates[0] };
   return { start_time: null, deadline: null };
 }
 

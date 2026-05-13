@@ -218,31 +218,17 @@
     }
   }
 
-  // 日時範囲文字列から { start_time, deadline } を抽出
-  // セパレータ: -(ハイフン) –(en dash) 〜 ～ →
-  var SEP_PATTERN = '[-–〜～→]';
+  // 日時範囲文字列から { start_time, deadline } を抽出（セパレータ依存なし）
+  // テキスト内の "YYYY/MM/DD HH:MM" をすべて抽出し、最初 = start_time / 最後 = deadline
   function parseDateRange(text) {
-    var full = text.match(
-      new RegExp(
-        '(\\d{4})/(\\d{2})/(\\d{2})\\s+(\\d{2}):(\\d{2})\\s*' + SEP_PATTERN +
-        '\\s*(\\d{4})/(\\d{2})/(\\d{2})\\s+(\\d{2}):(\\d{2})'
-      )
-    );
-    if (full) {
-      return {
-        start_time: full[1] + '-' + full[2] + '-' + full[3] + 'T' + full[4] + ':' + full[5] + ':00+09:00',
-        deadline:   full[6] + '-' + full[7] + '-' + full[8] + 'T' + full[9] + ':' + full[10] + ':00+09:00',
-      };
+    var DATE_RE = /(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/g;
+    var dates = [];
+    var m;
+    while ((m = DATE_RE.exec(text)) !== null) {
+      dates.push(m[1] + '-' + m[2] + '-' + m[3] + 'T' + m[4] + ':' + m[5] + ':00+09:00');
     }
-    var deadlineOnly = text.match(
-      new RegExp(SEP_PATTERN + '\\s*(\\d{4})/(\\d{2})/(\\d{2})\\s+(\\d{2}):(\\d{2})')
-    );
-    if (deadlineOnly) {
-      return {
-        start_time: null,
-        deadline:   deadlineOnly[1] + '-' + deadlineOnly[2] + '-' + deadlineOnly[3] + 'T' + deadlineOnly[4] + ':' + deadlineOnly[5] + ':00+09:00',
-      };
-    }
+    if (dates.length >= 2) return { start_time: dates[0], deadline: dates[dates.length - 1] };
+    if (dates.length === 1) return { start_time: null, deadline: dates[0] };
     return { start_time: null, deadline: null };
   }
 
