@@ -1,11 +1,142 @@
 'use strict';
 
-// 二重注入ガード
+// PWAのURL（デプロイ先に合わせて変更してください）
+// var を使うのは script 二重 injection 時の "already declared" エラーを避けるため
+var KU_LMS_PWA_URL = 'https://ku-lms-plus.vercel.app';
+
+// UI拡張はスクレイパーと独立してページごとに1回実行
+if (!window.__KU_LMS_UI_INJECTED) {
+  window.__KU_LMS_UI_INJECTED = true;
+  runUIEnhancements();
+}
+
+// スクレイパー二重実行ガード
 if (!window.__KU_KMS_INJECTED) {
   window.__KU_KMS_INJECTED = true;
   runScraper().finally(() => {
     window.__KU_KMS_INJECTED = false;
   });
+}
+
+// =============================================
+// UI拡張
+// =============================================
+function runUIEnhancements() {
+  if (document.querySelector('section.list-group-item.cl-contentsList_listGroupItem')) {
+    injectDeadlineBadges();
+  }
+  if (document.querySelector('table#schedule-table')) {
+    injectMiniDashboard();
+  }
+}
+
+// 授業ページ: 各課題ブロックに残り時間バッジを挿入
+function injectDeadlineBadges() {
+  document.querySelectorAll('section.list-group-item.cl-contentsList_listGroupItem').forEach((section) => {
+    section.querySelectorAll('.cm-contentsList_contentDetailListItemData').forEach((el) => {
+      if (el.querySelector('[data-kulms-badge]')) return; // 挿入済みならスキップ
+
+      const text  = (el.textContent ?? '').trim();
+      const dates = [...text.matchAll(/(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/g)]
+        .map((m) => `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00+09:00`);
+      if (!dates.length) return;
+
+      const now      = new Date();
+      const start    = dates.length >= 2 ? new Date(dates[0]) : null;
+      const deadline = new Date(dates[dates.length - 1]);
+      const diffMs   = deadline - now;
+      const diffH    = diffMs / 36e5; // ミリ秒→時間
+
+      let label, bg, color, border;
+      if (start && start > now) {
+        label  = '⏳ 開始前';
+        bg     = '#dbeafe'; color = '#1d4ed8'; border = '#93c5fd';
+      } else if (diffMs < 0) {
+        label  = '期限切れ';
+        bg     = '#f1f5f9'; color = '#94a3b8'; border = '#e2e8f0';
+      } else if (diffH < 24) {
+        label  = `🔥 あと${Math.ceil(diffH)}時間!`;
+        bg     = '#dc2626'; color = '#fff'; border = '#dc2626';
+      } else if (diffH < 72) {
+        label  = `🟡 あと${Math.floor(diffH / 24)}日`;
+        bg     = '#fef9c3'; color = '#854d0e'; border = '#fde047';
+      } else {
+        label  = `🟢 あと${Math.floor(diffH / 24)}日`;
+        bg     = '#dcfce7'; color = '#15803d'; border = '#86efac';
+      }
+
+      const badge = document.createElement('span');
+      badge.setAttribute('data-kulms-badge', '');
+      badge.textContent = label;
+      badge.style.cssText = [
+        `background:${bg}`,
+        `color:${color}`,
+        `border:1px solid ${border}`,
+        'display:inline-block',
+        'font-size:11px',
+        'font-weight:700',
+        'padding:2px 8px',
+        'border-radius:999px',
+        'margin-left:8px',
+        'white-space:nowrap',
+        'vertical-align:middle',
+        'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+      ].join(';');
+      el.appendChild(badge);
+    });
+  });
+}
+
+// トップページ: KU-LMS+ ミニダッシュボードをサイドバー最上部に挿入
+async function injectMiniDashboard() {
+  if (document.getElementById('kulms-mini-dashboard')) return;
+
+  const sidebar =
+    document.querySelector('.col-sm-3 .side-block-outer') ??
+    document.querySelector('.col-sm-3') ??
+    document.querySelector('.col-md-3');
+  if (!sidebar) return;
+
+  const { lastSyncAt, pendingCount, lastSyncCount } =
+    await chrome.storage.local.get(['lastSyncAt', 'pendingCount', 'lastSyncCount']);
+
+  const count    = pendingCount ?? lastSyncCount ?? '—';
+  const syncTime = lastSyncAt
+    ? new Date(lastSyncAt).toLocaleString('ja-JP', {
+        month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+      })
+    : '未同期';
+
+  const panel = document.createElement('div');
+  panel.id = 'kulms-mini-dashboard';
+  panel.style.cssText = [
+    'background:linear-gradient(135deg,#004a8f,#0066cc)',
+    'color:#fff',
+    'border-radius:10px',
+    'padding:14px 16px',
+    'margin-bottom:12px',
+    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+    'box-shadow:0 4px 12px rgba(0,74,143,.3)',
+  ].join(';');
+
+  // 値は chrome.storage 由来でユーザー入力を含まないため innerHTML は安全
+  panel.innerHTML = [
+    '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;',
+    'opacity:.7;margin-bottom:10px;">📋 KU-LMS+ タスク状況</div>',
+    '<div style="display:flex;align-items:baseline;gap:5px;margin-bottom:2px;">',
+    `<span style="font-size:34px;font-weight:800;line-height:1;">${count}</span>`,
+    '<span style="font-size:14px;font-weight:600;opacity:.85;">件</span>',
+    '</div>',
+    '<div style="font-size:12px;opacity:.75;margin-bottom:4px;">未完了タスク</div>',
+    `<div style="font-size:10px;opacity:.55;margin-bottom:12px;">最終同期: ${syncTime}</div>`,
+    `<a href="${KU_LMS_PWA_URL}" target="_blank" rel="noopener" `,
+    'style="display:block;text-align:center;background:#fff;color:#004a8f;',
+    'font-weight:700;font-size:13px;padding:9px;border-radius:7px;text-decoration:none;" ',
+    'onmouseover="this.style.background=\'#f0f9ff\'" onmouseout="this.style.background=\'#fff\'">',
+    'PWA で課題を確認する →</a>',
+  ].join('');
+
+  sidebar.insertBefore(panel, sidebar.firstChild);
 }
 
 // =============================================

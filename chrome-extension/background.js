@@ -224,6 +224,11 @@ async function upsertAssignments(assignments) {
 
   const count = rows.length;
 
+  // 締切が未来の件数 = ミニダッシュボードに表示する未完了タスク概算値
+  const pendingCount = rows.filter(
+    (r) => r.deadline && new Date(r.deadline) > new Date()
+  ).length;
+
   // バッジで件数を一時表示
   chrome.action.setBadgeText({ text: `${count}` });
   chrome.action.setBadgeBackgroundColor({ color: '#22c55e' });
@@ -234,6 +239,7 @@ async function upsertAssignments(assignments) {
     lastSyncAt:    now,
     lastSyncCount: count,
     lastSyncError: null,
+    pendingCount,
   });
 
   return count;
