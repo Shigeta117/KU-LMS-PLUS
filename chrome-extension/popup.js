@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('scrapeBtn').addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    if (!tab?.url?.includes('webclass.ku-portal.kansai-u.ac.jp')) {
+    if (!tab?.url?.includes('kulms.tl.kansai-u.ac.jp')) {
       setLoginError('WebClass のトップページを開いた状態で実行してください');
       return;
     }

@@ -36,7 +36,7 @@ chrome.webNavigation.onCompleted.addListener(
       console.warn('[KU-KMS+] Script injection failed:', e.message);
     }
   },
-  { url: [{ hostContains: 'webclass.ku-portal.kansai-u.ac.jp' }] }
+  { url: [{ hostContains: 'kulms.tl.kansai-u.ac.jp' }] }
 );
 
 // =============================================

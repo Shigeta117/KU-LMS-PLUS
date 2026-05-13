@@ -7,7 +7,7 @@
 
   "permissions": ["storage", "scripting", "webNavigation", "tabs"],
   "host_permissions": [
-    "https://webclass.ku-portal.kansai-u.ac.jp/*"
+    "https://kulms.tl.kansai-u.ac.jp/*"
   ],
 
   "background": {
