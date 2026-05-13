@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>オフライン – KU-LMS+</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8fafc;
+      color: #475569;
+      text-align: center;
+      padding: 24px;
+    }
+    .icon {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, #004a8f, #0066cc);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      font-size: 24px;
+      font-weight: 900;
+      color: #fff;
+    }
+    h1 { margin: 0 0 8px; font-size: 18px; color: #1e293b; }
+    p  { margin: 0; font-size: 14px; line-height: 1.6; }
+    button {
+      margin-top: 24px;
+      padding: 10px 24px;
+      background: #004a8f;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    @media (prefers-color-scheme: dark) {
+      body  { background: #0f172a; color: #94a3b8; }
+      h1    { color: #f1f5f9; }
+      button { background: #2563eb; }
+    }
+  </style>
+</head>
+<body>
+  <div class="icon">K+</div>
+  <h1>オフラインです</h1>
+  <p>インターネットに接続してから<br>もう一度お試しください</p>
+  <button onclick="location.reload()">再試行</button>
+</body>
+</html>

@@ -24,6 +24,12 @@ export default function ThemeProvider() {
       if (current === 'system') applyTheme('system');
     };
     mq.addEventListener('change', handler);
+
+    // Service Worker 登録
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+
     return () => mq.removeEventListener('change', handler);
   }, []);
 

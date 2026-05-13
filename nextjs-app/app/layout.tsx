@@ -24,6 +24,7 @@ export const viewport: Viewport = {
 // ハイドレーション前にテーマを適用してフラッシュを防ぐインラインスクリプト
 const themeInitScript = `(function(){try{var t=localStorage.getItem('ku-theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme:dark)').matches);if(d)document.documentElement.classList.add('dark')}catch(e){}})()`;
 
+
 export default function RootLayout({
   children,
 }: {
