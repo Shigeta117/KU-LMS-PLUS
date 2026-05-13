@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import InstallPrompt from '@/components/InstallPrompt';
-import ThemeProvider from '@/components/ThemeProvider';
+import ServiceWorkerInit from '@/components/ThemeProvider';
+import Providers from '@/components/Providers';
 
 export const metadata: Metadata = {
   title: 'KU-LMS+ 課題管理',
@@ -18,12 +19,12 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#004a8f',
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#004a8f' },
+    { media: '(prefers-color-scheme: dark)',  color: '#0f172a' },
+  ],
 };
-
-// ハイドレーション前にテーマを適用してフラッシュを防ぐインラインスクリプト
-const themeInitScript = `(function(){try{var t=localStorage.getItem('ku-theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme:dark)').matches);if(d)document.documentElement.classList.add('dark')}catch(e){}})()`;
-
 
 export default function RootLayout({
   children,
@@ -31,15 +32,28 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ja">
+    // suppressHydrationWarning: next-themes が html.class を書き換えるため必要
+    <html lang="ja" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
       <body className="bg-slate-50 dark:bg-slate-900 min-h-dvh antialiased">
-        <ThemeProvider />
-        {children}
-        <InstallPrompt />
+        <Providers>
+          {/* iOS ステータスバー領域の背景色をヘッダーの青と同化させる固定オーバーレイ */}
+          <div
+            aria-hidden
+            className="fixed top-0 left-0 right-0 pointer-events-none z-[999] dark:hidden"
+            style={{ height: 'env(safe-area-inset-top)', background: 'linear-gradient(135deg, #004a8f, #0066cc)' }}
+          />
+          <div
+            aria-hidden
+            className="fixed top-0 left-0 right-0 pointer-events-none z-[999] hidden dark:block"
+            style={{ height: 'env(safe-area-inset-top)', background: '#0f172a' }}
+          />
+          <ServiceWorkerInit />
+          {children}
+          <InstallPrompt />
+        </Providers>
       </body>
     </html>
   );

@@ -1,12 +1,20 @@
 @import "tailwindcss";
 
-/* dark: をクラスベースに変更（ThemeProvider が html.dark を制御）*/
+/* dark: をクラスベースに変更（next-themes が html.dark を制御）*/
 @variant dark (&:where(.dark, .dark *));
 
 @theme {
   --color-ku-blue: #004a8f;
   --color-ku-blue-dark: #003a72;
   --color-ku-accent: #0066cc;
+}
+
+/* iOS Safe Area ユーティリティ（viewport-fit:cover 時に有効）*/
+@utility pt-safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* iOS Safari の date/time input の幅はみ出し対策 */

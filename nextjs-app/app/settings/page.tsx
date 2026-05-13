@@ -16,7 +16,9 @@ import {
 } from 'lucide-react';
 import AuthGuard from '@/components/AuthGuard';
 import { supabase } from '@/lib/supabase';
-import { type ThemePreference, THEME_KEY, applyTheme } from '@/components/ThemeProvider';
+import { useTheme } from 'next-themes';
+
+type ThemePreference = 'system' | 'light' | 'dark';
 
 export default function SettingsPage() {
   return (
@@ -31,21 +33,17 @@ function SettingsContent() {
   const [origin, setOrigin] = useState('');
   const [copied, setCopied] = useState(false);
   const [userEmail, setUserEmail] = useState('');
-  const [theme, setTheme] = useState<ThemePreference>('system');
+  const { theme: rawTheme, setTheme } = useTheme();
+
+  // next-themes は初回マウント前に undefined を返すため 'system' をデフォルトとする
+  const theme = (rawTheme ?? 'system') as ThemePreference;
 
   useEffect(() => {
     setOrigin(window.location.origin);
     supabase.auth.getUser().then(({ data }) => {
       setUserEmail(data.user?.email ?? '');
     });
-    setTheme((localStorage.getItem(THEME_KEY) ?? 'system') as ThemePreference);
   }, []);
-
-  function handleThemeChange(pref: ThemePreference) {
-    setTheme(pref);
-    localStorage.setItem(THEME_KEY, pref);
-    applyTheme(pref);
-  }
 
   const loaderCode = origin
     ? `javascript:(function(){var s=document.createElement('script');s.src='${origin}/bookmarklet.js?_='+Date.now();document.body.appendChild(s)})();`
@@ -101,7 +99,7 @@ function SettingsContent() {
             {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
               <button
                 key={value}
-                onClick={() => handleThemeChange(value)}
+                onClick={() => setTheme(value)}
                 className={[
                   'flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl border text-xs font-semibold transition-colors',
                   theme === value
