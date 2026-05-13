@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase, fetchAssignments, updateAssignment } from '@/lib/supabase';
-import type { Assignment, FilterTab } from '@/lib/types';
+import type { FilterTab } from '@/lib/types';
 import { getDeadlineUrgency } from '@/lib/types';
+import { useAssignments } from '@/lib/useAssignments';
 import { CheckCircle2, EyeOff, RefreshCw, InboxIcon, Settings, RotateCcw } from 'lucide-react';
 import AuthGuard from '@/components/AuthGuard';
 import FilterBar from '@/components/FilterBar';
@@ -19,126 +19,22 @@ export default function HomePage() {
   );
 }
 
-type UndoEntry = {
-  id: string;
-  label: string;
-  rollback: Partial<Pick<Assignment, 'is_completed_manual' | 'is_hidden'>>;
-};
-
 function AssignmentList() {
   const router = useRouter();
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState('');
-  const [activeTab,   setActiveTab]   = useState<FilterTab>('pending');
-  const [activeCategoryByTab, setActiveCategoryByTab] = useState<Record<FilterTab, string>>({
+  const {
+    assignments, loading, error, lastUpdated,
+    loadData, handleToggleComplete, handleToggleHidden,
+    undoEntry, handleUndo,
+  } = useAssignments();
+
+  const [activeTab,            setActiveTab]            = useState<FilterTab>('pending');
+  const [activeCategoryByTab,  setActiveCategoryByTab]  = useState<Record<FilterTab, string>>({
     pending: '', completed: '', hidden: '',
   });
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [undoEntry,   setUndoEntry]   = useState<UndoEntry | null>(null);
-  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [activeCourse, setActiveCourse] = useState('');
 
   const activeCategory = activeCategoryByTab[activeTab];
-
-  // =============================================
-  // データ取得
-  // =============================================
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const data = await fetchAssignments();
-      setAssignments(data);
-      setLastUpdated(new Date());
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'データの取得に失敗しました');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  // Supabase Realtime: 拡張機能やブックマークレットのUPSERT後に自動再取得
-  useEffect(() => {
-    const channel = supabase
-      .channel('assignments-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, () => {
-        loadData();
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [loadData]);
-
-  // =============================================
-  // Undo トースト管理
-  // =============================================
-  const showUndo = useCallback((entry: UndoEntry) => {
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    setUndoEntry(entry);
-    undoTimerRef.current = setTimeout(() => setUndoEntry(null), 4000);
-  }, []);
-
-  const handleUndo = useCallback(async () => {
-    if (!undoEntry) return;
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    setUndoEntry(null);
-    setAssignments((prev) =>
-      prev.map((a) => (a.id === undoEntry.id ? { ...a, ...undoEntry.rollback } : a))
-    );
-    try {
-      await updateAssignment(undoEntry.id, undoEntry.rollback);
-    } catch {
-      loadData();
-    }
-  }, [undoEntry, loadData]);
-
-  // =============================================
-  // 楽観的更新ヘルパー
-  // =============================================
-  const optimisticUpdate = useCallback(
-    async (
-      id: string,
-      patch: Partial<Pick<Assignment, 'is_completed_manual' | 'is_hidden'>>,
-      undoLabel: string
-    ) => {
-      const target = assignments.find((a) => a.id === id);
-      if (!target) return;
-
-      const rollback: Partial<Pick<Assignment, 'is_completed_manual' | 'is_hidden'>> = {};
-      if ('is_completed_manual' in patch) rollback.is_completed_manual = target.is_completed_manual;
-      if ('is_hidden' in patch)           rollback.is_hidden           = target.is_hidden;
-
-      setAssignments((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, ...patch } : a))
-      );
-      showUndo({ id, label: undoLabel, rollback });
-
-      try {
-        await updateAssignment(id, patch);
-      } catch {
-        loadData();
-      }
-    },
-    [assignments, loadData, showUndo]
-  );
-
-  const handleToggleComplete = (id: string, current: boolean) =>
-    optimisticUpdate(
-      id,
-      { is_completed_manual: !current },
-      current ? '完了を取り消しました' : '完了済みにしました'
-    );
-
-  const handleToggleHidden = (id: string, current: boolean) =>
-    optimisticUpdate(
-      id,
-      { is_hidden: !current },
-      current ? '表示に戻しました' : '非表示にしました'
-    );
+  const pullIndicatorRef = usePullToRefresh(loadData, !loading);
 
   // =============================================
   // フィルタリング
@@ -151,11 +47,12 @@ function AssignmentList() {
         ? a.is_completed_manual && !a.is_hidden
         : a.is_hidden;
 
-    const matchCat = !activeCategory || a.category === activeCategory;
-    return matchTab && matchCat;
+    const matchCat    = !activeCategory || a.category === activeCategory;
+    const matchCourse = !activeCourse   || a.course_name === activeCourse;
+    return matchTab && matchCat && matchCourse;
   });
 
-  // pending タブのみ期限切れ / 期限内に分けてセクション表示
+  // pending タブのみ期限切れ / 期限内でセクション分け
   const overdueItems = activeTab === 'pending'
     ? filtered.filter((a) => getDeadlineUrgency(a.deadline) === 'overdue')
     : [];
@@ -167,13 +64,15 @@ function AssignmentList() {
     ...new Set(assignments.map((a) => a.category).filter(Boolean)),
   ].sort();
 
+  const courseNames = [
+    ...new Set(assignments.map((a) => a.course_name).filter((n): n is string => !!n)),
+  ].sort();
+
   const counts: Record<FilterTab, number> = {
     pending:   assignments.filter((a) => !a.is_completed_manual && !a.is_hidden).length,
-    completed: assignments.filter((a) => a.is_completed_manual && !a.is_hidden).length,
-    hidden:    assignments.filter((a) => a.is_hidden).length,
+    completed: assignments.filter((a) =>  a.is_completed_manual && !a.is_hidden).length,
+    hidden:    assignments.filter((a) =>  a.is_hidden).length,
   };
-
-  const pullIndicatorRef = usePullToRefresh(loadData, !loading);
 
   // =============================================
   // 描画
@@ -181,7 +80,7 @@ function AssignmentList() {
   return (
     <div className="flex flex-col min-h-dvh w-full sm:max-w-2xl sm:mx-auto sm:border-x sm:border-slate-200 dark:sm:border-slate-700">
       {/* プルツーリフレッシュ インジケーター */}
-      <div className="flex justify-center pt-2 h-0 overflow-visible pointer-events-none">
+      <div className="flex justify-center h-0 overflow-visible pointer-events-none">
         <div
           ref={pullIndicatorRef}
           className="w-8 h-8 border-4 border-white/40 border-t-white rounded-full opacity-0 transition-none"
@@ -191,7 +90,7 @@ function AssignmentList() {
 
       {/* ヘッダー */}
       <header
-        className="px-4 pt-safe-top pb-3 flex items-center justify-between"
+        className="px-4 pt-safe-top pb-3 flex items-center justify-between flex-shrink-0"
         style={{ background: 'linear-gradient(135deg, #004a8f, #0066cc)' }}
       >
         <div>
@@ -231,6 +130,9 @@ function AssignmentList() {
           setActiveCategoryByTab((prev) => ({ ...prev, [activeTab]: cat }))
         }
         counts={counts}
+        courseNames={courseNames}
+        activeCourse={activeCourse}
+        onCourseChange={setActiveCourse}
       />
 
       {/* メインコンテンツ */}
@@ -259,16 +161,15 @@ function AssignmentList() {
 
         {!loading && (
           <>
-            {/* 期限切れセクション（pending タブのみ）*/}
             {overdueItems.length > 0 && (
               <>
                 <p className="text-xs font-semibold text-red-500 dark:text-red-400 px-1 pt-1">
                   期限切れ
                 </p>
-                {overdueItems.map((assignment) => (
+                {overdueItems.map((a) => (
                   <TaskCard
-                    key={assignment.id}
-                    assignment={assignment}
+                    key={a.id}
+                    assignment={a}
                     onToggleComplete={handleToggleComplete}
                     onToggleHidden={handleToggleHidden}
                   />
@@ -280,12 +181,10 @@ function AssignmentList() {
                 )}
               </>
             )}
-
-            {/* 通常の課題リスト */}
-            {activeItems.map((assignment) => (
+            {activeItems.map((a) => (
               <TaskCard
-                key={assignment.id}
-                assignment={assignment}
+                key={a.id}
+                assignment={a}
                 onToggleComplete={handleToggleComplete}
                 onToggleHidden={handleToggleHidden}
               />
@@ -334,7 +233,9 @@ function EmptyState({ tab }: { tab: FilterTab }) {
     <div className="flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-500">
       <div className="mb-4">{icon}</div>
       <p className="text-sm font-medium">{text}</p>
-      <p className="text-xs mt-1 text-slate-400 dark:text-slate-500">WebClass で拡張機能またはブックマークレットを実行してください</p>
+      <p className="text-xs mt-1 text-slate-400 dark:text-slate-500">
+        WebClass で拡張機能またはブックマークレットを実行してください
+      </p>
     </div>
   );
 }

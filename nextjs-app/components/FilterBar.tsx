@@ -1,5 +1,6 @@
 'use client';
 
+import { ChevronDown } from 'lucide-react';
 import type { FilterTab } from '@/lib/types';
 
 const TABS: { key: FilterTab; label: string }[] = [
@@ -15,6 +16,9 @@ interface Props {
   activeCategory: string;
   onCategoryChange: (cat: string) => void;
   counts: Record<FilterTab, number>;
+  courseNames: string[];
+  activeCourse: string;
+  onCourseChange: (course: string) => void;
 }
 
 export default function FilterBar({
@@ -24,6 +28,9 @@ export default function FilterBar({
   activeCategory,
   onCategoryChange,
   counts,
+  courseNames,
+  activeCourse,
+  onCourseChange,
 }: Props) {
   return (
     <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10">
@@ -57,10 +64,41 @@ export default function FilterBar({
         ))}
       </div>
 
+      {/* 授業フィルタ（2科目以上あるときのみ表示）*/}
+      {courseNames.length > 1 && (
+        <div className="px-3 pt-2 pb-1">
+          <div className="relative">
+            <select
+              value={activeCourse}
+              onChange={(e) => onCourseChange(e.target.value)}
+              className={[
+                'w-full appearance-none text-xs font-medium rounded-lg pl-3 pr-7 py-1.5',
+                'border transition-colors focus:outline-none',
+                activeCourse
+                  ? 'bg-[#004a8f] dark:bg-blue-700 text-white border-[#004a8f] dark:border-blue-700'
+                  : 'bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 focus:border-[#004a8f] dark:focus:border-blue-400',
+              ].join(' ')}
+            >
+              <option value="">すべての授業</option>
+              {courseNames.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+            <ChevronDown
+              size={12}
+              className={[
+                'absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none',
+                activeCourse ? 'text-white/70' : 'text-slate-400 dark:text-slate-500',
+              ].join(' ')}
+            />
+          </div>
+        </div>
+      )}
+
       {/* カテゴリフィルタ（右端フェードで横スクロールを示唆）*/}
       {categories.length > 0 && (
         <div className="relative">
-          <div className="flex gap-2 overflow-x-auto px-4 py-2 scrollbar-none">
+          <div className="flex gap-2 overflow-x-auto px-3 py-2 scrollbar-none">
             <CategoryChip
               label="すべて"
               active={activeCategory === ''}
@@ -74,10 +112,8 @@ export default function FilterBar({
                 onClick={() => onCategoryChange(cat)}
               />
             ))}
-            {/* スクロールエリアの右側に余白を確保 */}
             <span className="flex-shrink-0 w-6" aria-hidden />
           </div>
-          {/* 右端グラデーション（スクロール可能であることを示す）*/}
           <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-slate-800 to-transparent" />
         </div>
       )}
