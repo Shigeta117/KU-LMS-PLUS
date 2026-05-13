@@ -1,5 +1,5 @@
 -- =============================================
--- KU-KMS+ Database Schema
+-- KU-LMS+ Database Schema
 -- =============================================
 
 create extension if not exists "uuid-ossp";
