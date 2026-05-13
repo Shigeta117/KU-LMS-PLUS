@@ -39,16 +39,11 @@ export default function RootLayout({
       </head>
       <body className="bg-slate-50 dark:bg-slate-900 min-h-dvh antialiased">
         <Providers>
-          {/* iOS ステータスバー領域の背景色をヘッダーの青と同化させる固定オーバーレイ */}
+          {/* iOS ステータスバー領域をヘッダーの青に統一 */}
           <div
             aria-hidden
-            className="fixed top-0 left-0 right-0 pointer-events-none z-[999] dark:hidden"
+            className="fixed top-0 left-0 right-0 pointer-events-none z-[999]"
             style={{ height: 'env(safe-area-inset-top)', background: 'linear-gradient(135deg, #004a8f, #0066cc)' }}
-          />
-          <div
-            aria-hidden
-            className="fixed top-0 left-0 right-0 pointer-events-none z-[999] hidden dark:block"
-            style={{ height: 'env(safe-area-inset-top)', background: '#0f172a' }}
           />
           <ServiceWorkerInit />
           {children}
