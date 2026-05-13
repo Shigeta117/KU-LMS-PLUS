@@ -288,9 +288,8 @@
     var scheduleTable = document.querySelector('table#schedule-table');
     if (!scheduleTable) return [];
 
-    // 課題締切ありの授業リンクを抽出（div.course-contents-info を含むもの）
-    var courseLinks = Array.from(scheduleTable.querySelectorAll('a'))
-      .filter(function (a) { return !!a.querySelector('div.course-contents-info'); })
+    // すべての授業リンクを抽出（/webclass/course.php/ を含む a タグ）
+    var courseLinks = Array.from(scheduleTable.querySelectorAll('a[href*="/webclass/course.php/"]'))
       .map(function (a) {
         return {
           url:        a.href,
@@ -302,10 +301,7 @@
     ['courses_list_left', 'courses_list_right'].forEach(function (listId) {
       var container = document.getElementById(listId);
       if (!container) return;
-      container.querySelectorAll('.course-data-box-normal').forEach(function (box) {
-        if (!box.querySelector('.course-contents-info')) return;
-        var anchor = box.querySelector('.course-title a');
-        if (!anchor) return;
+      container.querySelectorAll('.course-title a[href*="/webclass/course.php/"]').forEach(function (anchor) {
         courseLinks.push({ url: anchor.href, courseName: extractCourseName(anchor.textContent || '') });
       });
     });
@@ -336,6 +332,8 @@
       } catch (e) {
         console.warn('[KU-LMS+] fetch 失敗:', item.url, e.message);
       }
+
+      await new Promise(function (r) { setTimeout(r, 500); });
     }
 
     return assignments;

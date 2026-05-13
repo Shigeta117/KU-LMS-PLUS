@@ -17,11 +17,10 @@ async function runScraper() {
 
   sendStatus('scanning');
 
-  // Step 1: 課題締切ありの授業リンクを抽出（授業名も同時取得）
+  // Step 1: すべての授業リンクを抽出（/webclass/course.php/ を含む a タグ）
 
-  // 1a. 時間割テーブルから（締切アイコン付きのセルにある a タグ）
-  const courseLinks = Array.from(scheduleTable.querySelectorAll('a'))
-    .filter((a) => a.querySelector('div.course-contents-info'))
+  // 1a. 時間割テーブルから
+  const courseLinks = Array.from(scheduleTable.querySelectorAll('a[href*="/webclass/course.php/"]'))
     .map((a) => ({
       url:        a.href,
       courseName: extractCourseName(a.textContent ?? ''),
@@ -31,10 +30,7 @@ async function runScraper() {
   for (const listId of ['courses_list_left', 'courses_list_right']) {
     const container = document.getElementById(listId);
     if (!container) continue;
-    for (const box of container.querySelectorAll('.course-data-box-normal')) {
-      if (!box.querySelector('.course-contents-info')) continue;
-      const anchor = box.querySelector('.course-title a');
-      if (!anchor) continue;
+    for (const anchor of container.querySelectorAll('.course-title a[href*="/webclass/course.php/"]')) {
       courseLinks.push({
         url:        anchor.href,
         courseName: extractCourseName(anchor.textContent ?? ''),
@@ -51,7 +47,7 @@ async function runScraper() {
   });
 
   if (!uniqueLinks.length) {
-    sendStatus('no_courses_with_deadlines');
+    sendStatus('no_courses_found');
     return;
   }
 
@@ -70,6 +66,8 @@ async function runScraper() {
     } catch (e) {
       console.warn('[KU-LMS+] fetch 失敗:', courseUrl, e.message);
     }
+
+    await new Promise((r) => setTimeout(r, 500));
   }
 
   if (!assignments.length) {
