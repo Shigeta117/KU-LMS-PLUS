@@ -133,7 +133,7 @@ function parseCoursePage(html, baseUrl, courseId, courseName) {
 
     const deadlineRaw =
       section.querySelector('.cm-contentsList_contentDetailListItemData')?.textContent ?? '';
-    const deadline = parseDeadline(deadlineRaw);
+    const { start_time, deadline } = parseDateRange(deadlineRaw);
 
     const isSubmittedLms = !!section.querySelector('a[href*="/history"]');
 
@@ -142,6 +142,7 @@ function parseCoursePage(html, baseUrl, courseId, courseName) {
       course_name:      courseName || null,
       title,
       category,
+      start_time,
       deadline,
       detail_url:       detailUrl,
       is_submitted_lms: isSubmittedLms,
@@ -184,10 +185,26 @@ function extractCourseId(url) {
   }
 }
 
-function parseDeadline(text) {
-  const m = text.match(/[-–]\s*(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
-  if (!m) return null;
-  return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00+09:00`;
+function parseDateRange(text) {
+  // "YYYY/MM/DD HH:MM - YYYY/MM/DD HH:MM" — 開始日時と締切日時の両方
+  const full = text.match(
+    /(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})\s*[-–]\s*(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/
+  );
+  if (full) {
+    return {
+      start_time: `${full[1]}-${full[2]}-${full[3]}T${full[4]}:${full[5]}:00+09:00`,
+      deadline:   `${full[6]}-${full[7]}-${full[8]}T${full[9]}:${full[10]}:00+09:00`,
+    };
+  }
+  // "- YYYY/MM/DD HH:MM" — 締切のみ
+  const deadlineOnly = text.match(/[-–]\s*(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
+  if (deadlineOnly) {
+    return {
+      start_time: null,
+      deadline:   `${deadlineOnly[1]}-${deadlineOnly[2]}-${deadlineOnly[3]}T${deadlineOnly[4]}:${deadlineOnly[5]}:00+09:00`,
+    };
+  }
+  return { start_time: null, deadline: null };
 }
 
 function sendStatus(status, detail) {

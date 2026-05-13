@@ -218,11 +218,25 @@
     }
   }
 
-  // 期限文字列を ISO8601+09:00 に変換
-  function parseDeadline(text) {
-    var m = text.match(/[-–]\s*(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
-    if (!m) return null;
-    return m[1] + '-' + m[2] + '-' + m[3] + 'T' + m[4] + ':' + m[5] + ':00+09:00';
+  // 日時範囲文字列から { start_time, deadline } を抽出
+  function parseDateRange(text) {
+    var full = text.match(
+      /(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})\s*[-–]\s*(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/
+    );
+    if (full) {
+      return {
+        start_time: full[1] + '-' + full[2] + '-' + full[3] + 'T' + full[4] + ':' + full[5] + ':00+09:00',
+        deadline:   full[6] + '-' + full[7] + '-' + full[8] + 'T' + full[9] + ':' + full[10] + ':00+09:00',
+      };
+    }
+    var deadlineOnly = text.match(/[-–]\s*(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
+    if (deadlineOnly) {
+      return {
+        start_time: null,
+        deadline:   deadlineOnly[1] + '-' + deadlineOnly[2] + '-' + deadlineOnly[3] + 'T' + deadlineOnly[4] + ':' + deadlineOnly[5] + ':00+09:00',
+      };
+    }
+    return { start_time: null, deadline: null };
   }
 
   // JS リダイレクト (window.location.href = "...") を透過的に辿る fetch
@@ -261,9 +275,9 @@
         try { detailUrl = new URL(detailHref, baseUrl).href; } catch (e) { detailUrl = detailHref; }
       }
 
-      var deadlineEl  = section.querySelector('.cm-contentsList_contentDetailListItemData');
-      var deadlineRaw = deadlineEl ? deadlineEl.textContent : '';
-      var deadline    = parseDeadline(deadlineRaw);
+      var deadlineEl   = section.querySelector('.cm-contentsList_contentDetailListItemData');
+      var deadlineRaw  = deadlineEl ? deadlineEl.textContent : '';
+      var dateRange    = parseDateRange(deadlineRaw);
 
       var isSubmitted = !!section.querySelector('a[href*="/history"]');
 
@@ -272,7 +286,8 @@
         course_name:      courseName || null,
         title:            title,
         category:         category,
-        deadline:         deadline,
+        start_time:       dateRange.start_time,
+        deadline:         dateRange.deadline,
         detail_url:       detailUrl,
         is_submitted_lms: isSubmitted,
       });
@@ -352,6 +367,7 @@
         course_name:      a.course_name,
         title:            a.title,
         category:         a.category,
+        start_time:       a.start_time || null,
         deadline:         a.deadline,
         detail_url:       a.detail_url,
         is_submitted_lms: a.is_submitted_lms,

@@ -188,6 +188,7 @@ async function upsertAssignments(assignments) {
     course_name:      a.course_name ?? null,
     title:            a.title,
     category:         a.category,
+    start_time:       a.start_time ?? null,
     deadline:         a.deadline,
     detail_url:       a.detail_url,
     is_submitted_lms: a.is_submitted_lms,

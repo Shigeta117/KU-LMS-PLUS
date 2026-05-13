@@ -14,6 +14,7 @@ create table if not exists public.assignments (
   course_name          text,
   title                text        not null,
   category             text        not null default '',
+  start_time           timestamptz,
   deadline             timestamptz,
   detail_url           text        not null default '',
   is_submitted_lms     boolean     not null default false,
