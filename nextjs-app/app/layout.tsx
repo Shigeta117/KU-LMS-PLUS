@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import InstallPrompt from '@/components/InstallPrompt';
 
 export const metadata: Metadata = {
   title: 'KU-LMS+ 課題管理',
@@ -29,8 +30,9 @@ export default function RootLayout({
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
-      <body className="bg-slate-50 min-h-dvh antialiased">
+      <body className="bg-slate-50 dark:bg-slate-900 min-h-dvh antialiased">
         {children}
+        <InstallPrompt />
       </body>
     </html>
   );

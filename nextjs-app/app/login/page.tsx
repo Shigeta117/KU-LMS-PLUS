@@ -45,7 +45,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex items-center justify-center min-h-dvh px-4 bg-slate-50">
+    <main className="flex items-center justify-center min-h-dvh px-4 bg-slate-50 dark:bg-slate-900">
       <div className="w-full max-w-sm">
         {/* ロゴ */}
         <div className="text-center mb-8">
@@ -55,17 +55,17 @@ export default function LoginPage() {
           >
             <span className="text-white text-2xl font-black">K+</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">KU-LMS+</h1>
-          <p className="text-sm text-slate-500 mt-1">関大 WebClass 課題管理</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">KU-LMS+</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">関大 WebClass 課題管理</p>
         </div>
 
         {/* フォーム */}
         <form
           onSubmit={handleSubmit}
-          className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4"
+          className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm dark:shadow-none dark:ring-1 dark:ring-slate-700 border border-slate-200 dark:border-transparent p-6 space-y-4"
         >
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">
               メールアドレス
             </label>
             <input
@@ -75,12 +75,12 @@ export default function LoginPage() {
               required
               autoComplete="username"
               placeholder="your@email.com"
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:border-[#0066cc] transition-colors"
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-sm focus:outline-none focus:border-[#0066cc] dark:focus:border-blue-400 transition-colors"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">
               パスワード
             </label>
             <input
@@ -90,7 +90,7 @@ export default function LoginPage() {
               required
               autoComplete={isSignUp ? 'new-password' : 'current-password'}
               placeholder="••••••••"
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:border-[#0066cc] transition-colors"
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-sm focus:outline-none focus:border-[#0066cc] dark:focus:border-blue-400 transition-colors"
             />
           </div>
 
@@ -99,8 +99,8 @@ export default function LoginPage() {
               className={[
                 'text-sm rounded-lg px-3 py-2',
                 error.includes('メール')
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'bg-red-50 text-red-600',
+                  ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                  : 'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400',
               ].join(' ')}
             >
               {error}
@@ -123,7 +123,7 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => { setIsSignUp(!isSignUp); setError(''); }}
-            className="w-full text-xs text-slate-500 hover:text-slate-700 transition-colors"
+            className="w-full text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
           >
             {isSignUp
               ? 'すでにアカウントをお持ちの方はこちら'
