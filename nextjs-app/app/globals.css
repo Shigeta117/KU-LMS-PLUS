@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ku-blue: #004a8f;
+  --color-ku-blue-dark: #003a72;
+  --color-ku-accent: #0066cc;
+}
+
+/* iOS Safari の date/time input の幅はみ出し対策 */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+}
+
+/* スクロールバーを細くする（WebKit） */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
