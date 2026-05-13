@@ -55,7 +55,7 @@ export default function LoginPage() {
           >
             <span className="text-white text-2xl font-black">K+</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">KU-KMS+</h1>
+          <h1 className="text-2xl font-bold text-slate-800">KU-LMS+</h1>
           <p className="text-sm text-slate-500 mt-1">関大 WebClass 課題管理</p>
         </div>
 

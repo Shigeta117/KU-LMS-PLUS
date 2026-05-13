@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "KU-KMS+ スクレイパー",
-  "short_name": "KU-KMS+",
+  "name": "KU-LMS+ スクレイパー",
+  "short_name": "KU-LMS+",
   "version": "1.0.0",
   "description": "関西大学 WebClass の課題を自動収集して Supabase に保存します",
 
@@ -16,7 +16,7 @@
 
   "action": {
     "default_popup": "popup.html",
-    "default_title": "KU-KMS+",
+    "default_title": "KU-LMS+",
     "default_icon": {
       "16":  "icons/icon16.png",
       "48":  "icons/icon48.png",

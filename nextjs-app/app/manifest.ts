@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'KU-KMS+ 課題管理',
+    name: 'KU-LMS+ 課題管理',
     short_name: 'KMS+',
     description: '関西大学 WebClass の課題を一元管理するアプリ',
     start_url: '/',

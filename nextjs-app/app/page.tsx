@@ -109,14 +109,14 @@ function AssignmentList() {
   // 描画
   // =============================================
   return (
-    <div className="flex flex-col min-h-dvh max-w-md mx-auto">
+    <div className="flex flex-col min-h-dvh w-full sm:max-w-2xl sm:mx-auto sm:border-x sm:border-slate-200">
       {/* ヘッダー */}
       <header
         className="px-4 pt-safe-top pb-3 flex items-center justify-between"
         style={{ background: 'linear-gradient(135deg, #004a8f, #0066cc)' }}
       >
         <div>
-          <h1 className="text-white text-lg font-bold">KU-KMS+</h1>
+          <h1 className="text-white text-lg font-bold">KU-LMS+</h1>
           <p className="text-blue-100 text-xs">課題一覧</p>
         </div>
         <div className="flex items-center gap-2">
@@ -149,7 +149,7 @@ function AssignmentList() {
       />
 
       {/* メインコンテンツ */}
-      <main className="flex-1 px-4 py-4 pb-safe-bottom space-y-3">
+      <main className="flex-1 px-3 py-3 pb-safe-bottom space-y-3 sm:px-4 sm:py-4">
         {loading && (
           <div className="flex justify-center py-16">
             <div className="w-8 h-8 border-4 border-slate-200 border-t-[#004a8f] rounded-full animate-spin" />

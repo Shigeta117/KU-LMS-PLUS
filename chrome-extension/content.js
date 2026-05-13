@@ -43,7 +43,7 @@ async function runScraper() {
       const parsed = parseCoursePage(html, courseUrl, courseId, courseName);
       assignments.push(...parsed);
     } catch (e) {
-      console.warn('[KU-KMS+] fetch 失敗:', courseUrl, e.message);
+      console.warn('[KU-LMS+] fetch 失敗:', courseUrl, e.message);
     }
   }
 
@@ -63,7 +63,7 @@ async function runScraper() {
 async function fetchFollowingJsRedirect(url) {
   const res = await fetch(url, { credentials: 'include' });
   if (!res.ok) {
-    console.warn('[KU-KMS+] HTTP', res.status, url);
+    console.warn('[KU-LMS+] HTTP', res.status, url);
     return null;
   }
   const html = await res.text();
@@ -73,11 +73,11 @@ async function fetchFollowingJsRedirect(url) {
   if (!m) return html;
 
   const redirectUrl = new URL(m[1], url).href;
-  console.info('[KU-KMS+] JS redirect:', url, '→', redirectUrl);
+  console.info('[KU-LMS+] JS redirect:', url, '→', redirectUrl);
 
   const res2 = await fetch(redirectUrl, { credentials: 'include' });
   if (!res2.ok) {
-    console.warn('[KU-KMS+] リダイレクト先 HTTP', res2.status, redirectUrl);
+    console.warn('[KU-LMS+] リダイレクト先 HTTP', res2.status, redirectUrl);
     return null;
   }
   return res2.text();

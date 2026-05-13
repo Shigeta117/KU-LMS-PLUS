@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('password').classList.add('error');
       }
       setLoginError(msg);
-      console.error('[KU-KMS+] Login error:', res.error, 'code:', res.code);
+      console.error('[KU-LMS+] Login error:', res.error, 'code:', res.code);
     }
   });
 
@@ -185,7 +185,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       showToast('収集を開始しました', 'success');
     } catch (e) {
       setLoginError(`スクリプト注入エラー: ${e.message}`);
-      console.error('[KU-KMS+] executeScript error:', e);
+      console.error('[KU-LMS+] executeScript error:', e);
     } finally {
       setTimeout(() => {
         btn.disabled    = false;

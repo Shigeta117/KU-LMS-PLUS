@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'KU-KMS+ 課題管理',
+  title: 'KU-LMS+ 課題管理',
   description: '関西大学 WebClass の課題を一元管理',
   appleWebApp: {
     capable: true,

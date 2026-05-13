@@ -33,7 +33,7 @@ chrome.webNavigation.onCompleted.addListener(
         files: ['content.js'],
       });
     } catch (e) {
-      console.warn('[KU-KMS+] Script injection failed:', e.message);
+      console.warn('[KU-LMS+] Script injection failed:', e.message);
     }
   },
   { url: [{ hostContains: 'kulms.tl.kansai-u.ac.jp' }] }
@@ -71,7 +71,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return true;
 
     case 'SCRAPE_STATUS':
-      console.info('[KU-KMS+]', message.status, message.detail ?? '');
+      console.info('[KU-LMS+]', message.status, message.detail ?? '');
       // scanning / fetching / uploading → 同期中に遷移
       if (['scanning', 'fetching', 'uploading'].includes(message.status)) {
         saveSyncStatus('syncing');
@@ -106,7 +106,7 @@ async function login(email, password) {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const raw  = body.error_description || body.msg || body.message || '';
-    console.error('[KU-KMS+] Login failed', res.status, raw);
+    console.error('[KU-LMS+] Login failed', res.status, raw);
 
     const err = new Error(translateAuthError(res.status, raw));
     err.code  = `HTTP_${res.status}`;
@@ -221,7 +221,7 @@ async function upsertAssignments(assignments) {
   if (!res.ok) {
     const body = await res.text();
     const errMsg = `Supabase UPSERT error (${res.status}): ${body}`;
-    console.error('[KU-KMS+]', errMsg);
+    console.error('[KU-LMS+]', errMsg);
     await saveSyncStatus('error', { lastSyncError: errMsg });
     throw new Error(errMsg);
   }
