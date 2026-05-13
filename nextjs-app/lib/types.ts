@@ -5,6 +5,7 @@ export interface Assignment {
   course_name: string | null;
   title: string;
   category: string;
+  start_time: string | null;
   deadline: string | null;
   detail_url: string;
   is_submitted_lms: boolean;
@@ -14,7 +15,7 @@ export interface Assignment {
   created_at: string;
 }
 
-export type FilterTab = 'pending' | 'completed' | 'hidden';
+export type FilterTab = 'pending' | 'scheduled' | 'material' | 'completed' | 'hidden';
 
 export type DeadlineUrgency = 'overdue' | 'today' | 'week' | 'future' | 'none';
 
@@ -33,6 +34,21 @@ export function getDeadlineUrgency(deadline: string | null): DeadlineUrgency {
 export function formatDeadline(deadline: string | null): string {
   if (!deadline) return '期限なし';
   return new Date(deadline).toLocaleString('ja-JP', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Tokyo',
+  });
+}
+
+export function isScheduled(startTime: string | null): boolean {
+  return !!startTime && new Date(startTime) > new Date();
+}
+
+export function formatStartTime(startTime: string | null): string {
+  if (!startTime) return '';
+  return new Date(startTime).toLocaleString('ja-JP', {
     month: 'numeric',
     day: 'numeric',
     hour: '2-digit',

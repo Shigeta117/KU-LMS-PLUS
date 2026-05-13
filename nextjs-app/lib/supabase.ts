@@ -12,7 +12,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 export async function fetchAssignments(): Promise<Assignment[]> {
   const { data, error } = await supabase
     .from('assignments')
-    .select('id, course_id, course_name, title, category, deadline, detail_url, is_submitted_lms, is_completed_manual, is_hidden, updated_at, created_at')
+    .select('id, course_id, course_name, title, category, start_time, deadline, detail_url, is_submitted_lms, is_completed_manual, is_hidden, updated_at, created_at')
     .order('deadline', { ascending: true, nullsFirst: false });
 
   if (error) throw error;

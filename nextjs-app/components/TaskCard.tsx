@@ -2,7 +2,7 @@
 
 import { Check } from 'lucide-react';
 import type { Assignment, DeadlineUrgency } from '@/lib/types';
-import { getDeadlineUrgency, formatDeadline, formatRelativeDeadline } from '@/lib/types';
+import { getDeadlineUrgency, formatDeadline, formatRelativeDeadline, isScheduled, formatStartTime } from '@/lib/types';
 
 const URGENCY_STYLES: Record<
   DeadlineUrgency,
@@ -43,6 +43,12 @@ const URGENCY_LABEL: Record<DeadlineUrgency, string> = {
   none:    '期限なし',
 };
 
+const SCHEDULED_STYLE = {
+  badge:  'bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-400',
+  border: 'border-l-sky-300 dark:border-l-sky-600',
+  text:   'text-sky-600 dark:text-sky-400',
+};
+
 interface Props {
   assignment: Assignment;
   onToggleComplete: (id: string, current: boolean) => void;
@@ -58,6 +64,7 @@ export default function TaskCard({
     id,
     title,
     category,
+    start_time,
     deadline,
     detail_url,
     course_id,
@@ -67,8 +74,9 @@ export default function TaskCard({
     is_hidden,
   } = assignment;
 
-  const urgency = getDeadlineUrgency(deadline);
-  const styles  = URGENCY_STYLES[urgency];
+  const scheduled = isScheduled(start_time);
+  const urgency   = scheduled ? 'none' : getDeadlineUrgency(deadline);
+  const styles    = scheduled ? SCHEDULED_STYLE : URGENCY_STYLES[urgency];
 
   return (
     <article
@@ -92,7 +100,7 @@ export default function TaskCard({
               styles.badge,
             ].join(' ')}
           >
-            {URGENCY_LABEL[urgency]}
+            {scheduled ? '開始前' : URGENCY_LABEL[urgency]}
           </span>
         </div>
 
@@ -124,11 +132,17 @@ export default function TaskCard({
           {course_name || course_id}
         </p>
 
-        {/* 期限 */}
+        {/* 期限 / 開始時刻 */}
         <p className={['text-xs font-medium flex items-center gap-1.5', styles.text].join(' ')}>
-          <span>{formatDeadline(deadline)}</span>
-          {deadline && (
-            <span className="opacity-70">({formatRelativeDeadline(deadline)})</span>
+          {scheduled ? (
+            <span>開始: {formatStartTime(start_time)}</span>
+          ) : (
+            <>
+              <span>{formatDeadline(deadline)}</span>
+              {deadline && (
+                <span className="opacity-70">({formatRelativeDeadline(deadline)})</span>
+              )}
+            </>
           )}
         </p>
 

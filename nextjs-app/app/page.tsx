@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import type { FilterTab } from '@/lib/types';
 import { getDeadlineUrgency } from '@/lib/types';
 import { useAssignments } from '@/lib/useAssignments';
-import { CheckCircle2, EyeOff, RefreshCw, InboxIcon, Settings, RotateCcw } from 'lucide-react';
+import { CheckCircle2, EyeOff, RefreshCw, InboxIcon, Settings, RotateCcw, Clock, FileText } from 'lucide-react';
 import AuthGuard from '@/components/AuthGuard';
 import FilterBar from '@/components/FilterBar';
 import TaskCard from '@/components/TaskCard';
 import { usePullToRefresh } from '@/lib/usePullToRefresh';
+import { isScheduled } from '@/lib/types';
 
 export default function HomePage() {
   return (
@@ -29,7 +30,7 @@ function AssignmentList() {
 
   const [activeTab,            setActiveTab]            = useState<FilterTab>('pending');
   const [activeCategoryByTab,  setActiveCategoryByTab]  = useState<Record<FilterTab, string>>({
-    pending: '', completed: '', hidden: '',
+    pending: '', scheduled: '', material: '', completed: '', hidden: '',
   });
   const [activeCourse, setActiveCourse] = useState('');
 
@@ -40,9 +41,16 @@ function AssignmentList() {
   // フィルタリング
   // =============================================
   const filtered = assignments.filter((a) => {
+    const scheduled = isScheduled(a.start_time);
+    const material  = !a.deadline && !scheduled;
+
     const matchTab =
       activeTab === 'pending'
-        ? !a.is_completed_manual && !a.is_hidden
+        ? !a.is_completed_manual && !a.is_hidden && !scheduled && !!a.deadline
+        : activeTab === 'scheduled'
+        ? !a.is_completed_manual && !a.is_hidden && scheduled
+        : activeTab === 'material'
+        ? !a.is_completed_manual && !a.is_hidden && material
         : activeTab === 'completed'
         ? a.is_completed_manual && !a.is_hidden
         : a.is_hidden;
@@ -69,7 +77,9 @@ function AssignmentList() {
   ].sort();
 
   const counts: Record<FilterTab, number> = {
-    pending:   assignments.filter((a) => !a.is_completed_manual && !a.is_hidden).length,
+    pending:   assignments.filter((a) => !a.is_completed_manual && !a.is_hidden && !isScheduled(a.start_time) && !!a.deadline).length,
+    scheduled: assignments.filter((a) => !a.is_completed_manual && !a.is_hidden &&  isScheduled(a.start_time)).length,
+    material:  assignments.filter((a) => !a.is_completed_manual && !a.is_hidden && !a.deadline && !isScheduled(a.start_time)).length,
     completed: assignments.filter((a) =>  a.is_completed_manual && !a.is_hidden).length,
     hidden:    assignments.filter((a) =>  a.is_hidden).length,
   };
@@ -217,6 +227,14 @@ function EmptyState({ tab }: { tab: FilterTab }) {
     pending: {
       icon: <InboxIcon size={40} strokeWidth={1.5} className="text-slate-300 dark:text-slate-600" />,
       text: '未完了の課題はありません',
+    },
+    scheduled: {
+      icon: <Clock size={40} strokeWidth={1.5} className="text-slate-300 dark:text-slate-600" />,
+      text: '開始前の課題はありません',
+    },
+    material: {
+      icon: <FileText size={40} strokeWidth={1.5} className="text-slate-300 dark:text-slate-600" />,
+      text: '資料・その他はありません',
     },
     completed: {
       icon: <CheckCircle2 size={40} strokeWidth={1.5} className="text-slate-300 dark:text-slate-600" />,

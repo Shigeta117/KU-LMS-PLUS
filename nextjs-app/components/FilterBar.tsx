@@ -5,6 +5,8 @@ import type { FilterTab } from '@/lib/types';
 
 const TABS: { key: FilterTab; label: string }[] = [
   { key: 'pending',   label: '未完了' },
+  { key: 'scheduled', label: '開始前' },
+  { key: 'material',  label: '資料' },
   { key: 'completed', label: '完了済' },
   { key: 'hidden',    label: '非表示' },
 ];
@@ -41,7 +43,7 @@ export default function FilterBar({
             key={key}
             onClick={() => onTabChange(key)}
             className={[
-              'flex-1 py-3 text-sm font-semibold border-b-2 transition-colors',
+              'flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors',
               activeTab === key
                 ? 'border-[#004a8f] text-[#004a8f] dark:border-blue-400 dark:text-blue-400'
                 : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200',
