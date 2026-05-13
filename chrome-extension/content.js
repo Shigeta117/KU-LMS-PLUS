@@ -102,7 +102,7 @@ function injectActionButtons() {
 
     const bar = document.createElement('div');
     bar.setAttribute('data-kulms-actions', '');
-    bar.style.cssText = 'display:flex;gap:6px;padding:5px 8px 7px;border-top:1px solid rgba(0,0,0,.06);';
+    bar.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 8px 7px;border-top:1px solid rgba(0,0,0,.06);';
 
     const completeBtn = makeLmsBtn('✓ 完了', '#16a34a', '#fff');
     const hideBtn     = makeLmsBtn('非表示', '#64748b', '#fff');
@@ -172,10 +172,9 @@ async function injectMiniDashboard() {
     document.querySelector('.col-md-3');
   if (!sidebar) return;
 
-  const { lastSyncAt, pendingCount, lastSyncCount } =
-    await chrome.storage.local.get(['lastSyncAt', 'pendingCount', 'lastSyncCount']);
+  const { lastSyncAt, upcomingDeadlines } =
+    await chrome.storage.local.get(['lastSyncAt', 'upcomingDeadlines']);
 
-  const count    = pendingCount ?? lastSyncCount ?? '—';
   const syncTime = lastSyncAt
     ? new Date(lastSyncAt).toLocaleString('ja-JP', {
         month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -194,16 +193,57 @@ async function injectMiniDashboard() {
     'box-shadow:0 4px 12px rgba(0,74,143,.3)',
   ].join(';');
 
-  // 値は chrome.storage 由来でユーザー入力を含まないため innerHTML は安全
+  // HTMLエスケープ（course_name / title は WebClass 由来のテキスト）
+  function esc(s) {
+    return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  const now = new Date();
+  let itemsHtml;
+
+  if (upcomingDeadlines && upcomingDeadlines.length > 0) {
+    itemsHtml = upcomingDeadlines.map((item, i) => {
+      const dl     = new Date(item.deadline);
+      const diffH  = (dl - now) / 36e5;
+      const isLast = i === upcomingDeadlines.length - 1;
+
+      let badgeText, badgeBg, badgeColor;
+      if (diffH < 24) {
+        badgeText = `🔥 ${Math.ceil(diffH)}時間`;
+        badgeBg = '#dc2626'; badgeColor = '#fff';
+      } else if (diffH < 72) {
+        badgeText = `あと${Math.floor(diffH / 24)}日`;
+        badgeBg = '#fef9c3'; badgeColor = '#854d0e';
+      } else {
+        badgeText = `あと${Math.floor(diffH / 24)}日`;
+        badgeBg = 'rgba(255,255,255,.15)'; badgeColor = 'rgba(255,255,255,.9)';
+      }
+
+      const titleShort = item.title.length > 22 ? item.title.slice(0, 22) + '…' : item.title;
+      const coursePart = item.course_name
+        ? `<div style="font-size:9px;opacity:.6;margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(item.course_name)}</div>`
+        : '';
+
+      return [
+        `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;`,
+        `padding:5px 0;${isLast ? '' : 'border-bottom:1px solid rgba(255,255,255,.12);'}">`,
+        `<div style="flex:1;min-width:0;">`,
+        coursePart,
+        `<div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(titleShort)}</div>`,
+        `</div>`,
+        `<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;`,
+        `background:${badgeBg};color:${badgeColor};">${badgeText}</span>`,
+        `</div>`,
+      ].join('');
+    }).join('');
+  } else {
+    itemsHtml = '<div style="font-size:12px;opacity:.6;padding:6px 0 8px;">締切が近い課題はありません</div>';
+  }
+
   panel.innerHTML = [
-    '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;',
-    'opacity:.7;margin-bottom:10px;">📋 KU-LMS+ タスク状況</div>',
-    '<div style="display:flex;align-items:baseline;gap:5px;margin-bottom:2px;">',
-    `<span style="font-size:34px;font-weight:800;line-height:1;">${count}</span>`,
-    '<span style="font-size:14px;font-weight:600;opacity:.85;">件</span>',
-    '</div>',
-    '<div style="font-size:12px;opacity:.75;margin-bottom:4px;">未完了タスク</div>',
-    `<div style="font-size:10px;opacity:.55;margin-bottom:12px;">最終同期: ${syncTime}</div>`,
+    '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;opacity:.7;margin-bottom:8px;">📋 KU-LMS+ 締切が近い課題</div>',
+    itemsHtml,
+    `<div style="font-size:10px;opacity:.5;margin-top:8px;margin-bottom:10px;">最終同期: ${syncTime}</div>`,
     `<a href="${KU_LMS_PWA_URL}" target="_blank" rel="noopener" `,
     'style="display:block;text-align:center;background:#fff;color:#004a8f;',
     'font-weight:700;font-size:13px;padding:9px;border-radius:7px;text-decoration:none;" ',

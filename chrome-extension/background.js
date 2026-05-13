@@ -267,11 +267,16 @@ async function upsertAssignments(assignments) {
   }
 
   const count = rows.length;
+  const nowDate = new Date();
 
-  // 締切が未来の件数 = ミニダッシュボードに表示する未完了タスク概算値
-  const pendingCount = rows.filter(
-    (r) => r.deadline && new Date(r.deadline) > new Date()
-  ).length;
+  // 締切が近い順に最大4件を保存（ミニダッシュボード用）
+  const upcomingDeadlines = rows
+    .filter((r) => r.deadline && new Date(r.deadline) > nowDate)
+    .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
+    .slice(0, 4)
+    .map((r) => ({ title: r.title, deadline: r.deadline, course_name: r.course_name ?? null }));
+
+  const pendingCount = upcomingDeadlines.length;
 
   // バッジで件数を一時表示
   chrome.action.setBadgeText({ text: `${count}` });
@@ -280,10 +285,11 @@ async function upsertAssignments(assignments) {
 
   // ストレージに成功状態を保存
   await saveSyncStatus('success', {
-    lastSyncAt:    now,
-    lastSyncCount: count,
-    lastSyncError: null,
+    lastSyncAt:        now,
+    lastSyncCount:     count,
+    lastSyncError:     null,
     pendingCount,
+    upcomingDeadlines,
   });
 
   return count;
