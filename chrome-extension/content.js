@@ -113,8 +113,8 @@ function parseCoursePage(html, baseUrl, courseId, courseName) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const results = [];
 
-  doc.querySelectorAll('section.list-group-item').forEach((section) => {
-    // 課題名 — "New" 文字を除去
+  doc.querySelectorAll('section.list-group-item.cl-contentsList_listGroupItem').forEach((section) => {
+    // 課題名 — "New" バッジ div のテキストを除去
     const rawTitle =
       section.querySelector('.cm-contentsList_contentName')?.textContent ?? '';
     const title = rawTitle.replace(/\bNew\b/g, '').replace(/\s+/g, ' ').trim();
@@ -123,12 +123,18 @@ function parseCoursePage(html, baseUrl, courseId, courseName) {
     const category =
       section.querySelector('.cl-contentsList_categoryLabel')?.textContent?.trim() ?? '';
 
-    const detailHref =
-      section.querySelector('a[href]')?.getAttribute('href') ?? '';
+    // do_contents.php タイトルリンク（安定、トークンなし）を優先
+    // なければ詳細リンクから acs_ を除去して使用
+    const titleAnchor  = section.querySelector('.cm-contentsList_contentName a[href*="do_contents"]');
+    const detailAnchor = section.querySelector('.cl-contentsList_contentDetailListItemData a[href*="/contents/"]');
+    const preferredHref = (titleAnchor ?? detailAnchor)?.getAttribute('href') ?? '';
     let detailUrl = '';
-    if (detailHref) {
-      try { detailUrl = new URL(detailHref, baseUrl).href; }
-      catch { detailUrl = detailHref; }
+    if (preferredHref) {
+      try {
+        const u = new URL(preferredHref, baseUrl);
+        u.searchParams.delete('acs_');
+        detailUrl = u.href;
+      } catch { detailUrl = preferredHref; }
     }
 
     // 受付期間と締切が別々の要素に入るケースに対応するため全要素テキストを結合

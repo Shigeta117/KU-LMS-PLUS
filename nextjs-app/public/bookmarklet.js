@@ -253,19 +253,27 @@
     var doc     = new DOMParser().parseFromString(html, 'text/html');
     var results = [];
 
-    doc.querySelectorAll('section.list-group-item').forEach(function (section) {
+    doc.querySelectorAll('section.list-group-item.cl-contentsList_listGroupItem').forEach(function (section) {
       var rawTitle = (section.querySelector('.cm-contentsList_contentName') || {}).textContent || '';
       var title    = rawTitle.replace(/\bNew\b/g, '').replace(/\s+/g, ' ').trim();
       if (!title) return;
 
-      var categoryEl  = section.querySelector('.cl-contentsList_categoryLabel');
-      var category    = categoryEl ? categoryEl.textContent.trim() : '';
+      var categoryEl = section.querySelector('.cl-contentsList_categoryLabel');
+      var category   = categoryEl ? categoryEl.textContent.trim() : '';
 
-      var anchorEl    = section.querySelector('a[href]');
-      var detailHref  = anchorEl ? anchorEl.getAttribute('href') : '';
-      var detailUrl   = '';
-      if (detailHref) {
-        try { detailUrl = new URL(detailHref, baseUrl).href; } catch (e) { detailUrl = detailHref; }
+      // do_contents.php タイトルリンク（安定、トークンなし）を優先
+      // なければ詳細リンクから acs_ を除去して使用
+      var titleAnchor  = section.querySelector('.cm-contentsList_contentName a[href*="do_contents"]');
+      var detailAnchor = section.querySelector('.cl-contentsList_contentDetailListItemData a[href*="/contents/"]');
+      var preferredHref = (titleAnchor || detailAnchor);
+      preferredHref = preferredHref ? preferredHref.getAttribute('href') : '';
+      var detailUrl = '';
+      if (preferredHref) {
+        try {
+          var u = new URL(preferredHref, baseUrl);
+          u.searchParams.delete('acs_');
+          detailUrl = u.href;
+        } catch (e) { detailUrl = preferredHref; }
       }
 
       // 受付期間と締切が別々の要素に入るケースに対応するため全要素テキストを結合
