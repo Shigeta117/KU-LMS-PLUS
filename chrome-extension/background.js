@@ -190,6 +190,7 @@ async function upsertAssignments(assignments) {
   const rows = assignments.map((a) => ({
     user_id:          userId,
     course_id:        a.course_id,
+    course_name:      a.course_name ?? null,
     title:            a.title,
     category:         a.category,
     deadline:         a.deadline,

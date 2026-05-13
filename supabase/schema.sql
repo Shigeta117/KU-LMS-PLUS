@@ -11,6 +11,7 @@ create table if not exists public.assignments (
   id                   uuid        primary key default uuid_generate_v4(),
   user_id              uuid        not null references auth.users(id) on delete cascade,
   course_id            text        not null,
+  course_name          text,
   title                text        not null,
   category             text        not null default '',
   deadline             timestamptz,

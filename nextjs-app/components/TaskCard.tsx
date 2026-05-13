@@ -61,6 +61,7 @@ export default function TaskCard({
     deadline,
     detail_url,
     course_id,
+    course_name,
     is_submitted_lms,
     is_completed_manual,
     is_hidden,
@@ -118,8 +119,10 @@ export default function TaskCard({
           )}
         </h3>
 
-        {/* 授業ID */}
-        <p className="text-xs text-slate-400 mb-2">{course_id}</p>
+        {/* 授業名（取得できた場合優先、なければ course_id）*/}
+        <p className="text-xs text-slate-400 mb-2">
+          {course_name || course_id}
+        </p>
 
         {/* 期限 */}
         <p className={['text-xs font-medium', styles.text].join(' ')}>

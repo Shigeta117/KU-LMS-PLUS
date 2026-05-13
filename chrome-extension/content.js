@@ -1,6 +1,6 @@
 'use strict';
 
-// 二重注入ガード（executeScript が複数回呼ばれても 1 回だけ実行）
+// 二重注入ガード
 if (!window.__KU_KMS_INJECTED) {
   window.__KU_KMS_INJECTED = true;
   runScraper().finally(() => {
@@ -13,14 +13,17 @@ if (!window.__KU_KMS_INJECTED) {
 // =============================================
 async function runScraper() {
   const scheduleTable = document.querySelector('table#schedule-table');
-  if (!scheduleTable) return; // 時間割ページ以外は無視
+  if (!scheduleTable) return;
 
   sendStatus('scanning');
 
-  // Step 1: 締切近い課題がある授業リンクを抽出
-  const courseLinks = Array.from(
-    scheduleTable.querySelectorAll('a')
-  ).filter((a) => a.querySelector('div.course-contents-info'));
+  // Step 1: 課題締切ありの授業リンクを抽出（授業名も同時取得）
+  const courseLinks = Array.from(scheduleTable.querySelectorAll('a'))
+    .filter((a) => a.querySelector('div.course-contents-info'))
+    .map((a) => ({
+      url:        a.href,
+      courseName: extractCourseName(a.textContent ?? ''),
+    }));
 
   if (!courseLinks.length) {
     sendStatus('no_courses_with_deadlines');
@@ -31,18 +34,13 @@ async function runScraper() {
 
   const assignments = [];
 
-  for (const link of courseLinks) {
-    const courseUrl = link.href;
+  for (const { url: courseUrl, courseName } of courseLinks) {
     const courseId = extractCourseId(courseUrl);
 
     try {
-      const res = await fetch(courseUrl, { credentials: 'include' });
-      if (!res.ok) {
-        console.warn('[KU-KMS+] HTTP', res.status, courseUrl);
-        continue;
-      }
-      const html = await res.text();
-      const parsed = parseCoursePage(html, courseUrl, courseId);
+      const html = await fetchFollowingJsRedirect(courseUrl);
+      if (!html) continue;
+      const parsed = parseCoursePage(html, courseUrl, courseId, courseName);
       assignments.push(...parsed);
     } catch (e) {
       console.warn('[KU-KMS+] fetch 失敗:', courseUrl, e.message);
@@ -59,9 +57,36 @@ async function runScraper() {
 }
 
 // =============================================
-// 授業ページのHTML解析
+// JS リダイレクトを透過的に追跡する fetch
+// WebClass は認証確認後に window.location.href = "..." でリダイレクトする
 // =============================================
-function parseCoursePage(html, baseUrl, courseId) {
+async function fetchFollowingJsRedirect(url) {
+  const res = await fetch(url, { credentials: 'include' });
+  if (!res.ok) {
+    console.warn('[KU-KMS+] HTTP', res.status, url);
+    return null;
+  }
+  const html = await res.text();
+
+  // window.location.href = "/path" または window.location.href = "https://..." を検出
+  const m = html.match(/window\.location\.href\s*=\s*["']([^"']+)["']/);
+  if (!m) return html;
+
+  const redirectUrl = new URL(m[1], url).href;
+  console.info('[KU-KMS+] JS redirect:', url, '→', redirectUrl);
+
+  const res2 = await fetch(redirectUrl, { credentials: 'include' });
+  if (!res2.ok) {
+    console.warn('[KU-KMS+] リダイレクト先 HTTP', res2.status, redirectUrl);
+    return null;
+  }
+  return res2.text();
+}
+
+// =============================================
+// 授業ページの HTML 解析
+// =============================================
+function parseCoursePage(html, baseUrl, courseId, courseName) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const results = [];
 
@@ -72,39 +97,30 @@ function parseCoursePage(html, baseUrl, courseId) {
     const title = rawTitle.replace(/\bNew\b/g, '').replace(/\s+/g, ' ').trim();
     if (!title) return;
 
-    // カテゴリ（レポート / アンケート / 資料 など）
     const category =
-      section
-        .querySelector('.cl-contentsList_categoryLabel')
-        ?.textContent?.trim() ?? '';
+      section.querySelector('.cl-contentsList_categoryLabel')?.textContent?.trim() ?? '';
 
-    // 詳細URL（相対パスを絶対パスに解決）
     const detailHref =
       section.querySelector('a[href]')?.getAttribute('href') ?? '';
     let detailUrl = '';
     if (detailHref) {
-      try {
-        detailUrl = new URL(detailHref, baseUrl).href;
-      } catch {
-        detailUrl = detailHref;
-      }
+      try { detailUrl = new URL(detailHref, baseUrl).href; }
+      catch { detailUrl = detailHref; }
     }
 
-    // 提出期限 — "YYYY/MM/DD HH:MM - YYYY/MM/DD HH:MM" の後半を抽出
     const deadlineRaw =
-      section.querySelector('.cm-contentsList_contentDetailListItemData')
-        ?.textContent ?? '';
+      section.querySelector('.cm-contentsList_contentDetailListItemData')?.textContent ?? '';
     const deadline = parseDeadline(deadlineRaw);
 
-    // 提出済み判定（利用回数リンクの有無で推定）
     const isSubmittedLms = !!section.querySelector('a[href*="/history"]');
 
     results.push({
-      course_id: courseId,
+      course_id:        courseId,
+      course_name:      courseName || null,
       title,
       category,
       deadline,
-      detail_url: detailUrl,
+      detail_url:       detailUrl,
       is_submitted_lms: isSubmittedLms,
     });
   });
@@ -115,11 +131,27 @@ function parseCoursePage(html, baseUrl, courseId) {
 // =============================================
 // ユーティリティ
 // =============================================
+
+// 授業名を時間割リンクのテキストから抽出
+// "» 専攻横断型講義（仕事、働くことのいま） (2026-春学期-水曜日-2限-50738)"
+// → "専攻横断型講義（仕事、働くことのいま）"
+function extractCourseName(rawText) {
+  // 先頭の "»", "＞", ">" および空白を除去
+  const text = rawText.replace(/^[»＞>\s]+/, '').trim();
+  // 最初の半角 " (" より前を授業名とする（後ろは学期・曜日・時限情報）
+  const idx = text.indexOf(' (');
+  return idx > 0 ? text.slice(0, idx).trim() : text;
+}
+
+// course_id を URL から抽出
+// 例: /webclass/course.php/26150738/login → "26150738"
 function extractCourseId(url) {
-  // course_id クエリパラメータを優先
-  const m = url.match(/[?&]course_id=([^&]+)/);
-  if (m) return decodeURIComponent(m[1]);
-  // なければパスの末尾セグメントを使用
+  // クエリパラメータに course_id がある場合
+  const qm = url.match(/[?&]course_id=([^&]+)/);
+  if (qm) return decodeURIComponent(qm[1]);
+  // パスに数値IDが含まれる場合（/course.php/26150738/...）
+  const pm = url.match(/\/course\.php\/(\d+)\//);
+  if (pm) return pm[1];
   try {
     return new URL(url).pathname.split('/').filter(Boolean).pop() ?? url;
   } catch {
@@ -128,13 +160,8 @@ function extractCourseId(url) {
 }
 
 function parseDeadline(text) {
-  // "YYYY/MM/DD HH:MM - YYYY/MM/DD HH:MM" の右辺（締切）を抽出
-  // 全角ハイフン・半角ハイフン両対応
-  const m = text.match(
-    /[-–]\s*(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/
-  );
+  const m = text.match(/[-–]\s*(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
   if (!m) return null;
-  // JST (UTC+9) として ISO8601 に変換
   return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00+09:00`;
 }
 
