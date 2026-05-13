@@ -1,12 +1,7 @@
 'use strict';
 
-// ============================================================
-// ▼▼▼ 配布前にここを書き換えてください ▼▼▼
-// Supabase ダッシュボード > Project Settings > API から取得
-// ============================================================
 const SUPABASE_URL      = 'https://jjjndffkyuvlwwcqcurt.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_DZj-CpBoQgnSFnkjcb9ZkQ_7m7g72V1';
-// ▲▲▲ ここまで ▲▲▲
 
 const AUTH_URL = `${SUPABASE_URL}/auth/v1`;
 const REST_URL = `${SUPABASE_URL}/rest/v1`;

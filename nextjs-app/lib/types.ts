@@ -46,10 +46,12 @@ export function formatRelativeDeadline(deadline: string | null): string {
   const diff = new Date(deadline).getTime() - Date.now();
   if (diff < 0) {
     const h = Math.floor(-diff / (60 * 60 * 1000));
+    if (h === 0) return '期限超過';
     if (h < 24) return `${h}時間超過`;
     return `${Math.floor(h / 24)}日超過`;
   }
   const totalMin = Math.floor(diff / (60 * 1000));
+  if (totalMin === 0) return 'まもなく';
   if (totalMin < 60) return `あと${totalMin}分`;
   const totalH = Math.floor(diff / (60 * 60 * 1000));
   if (totalH < 24) return `あと${totalH}時間`;

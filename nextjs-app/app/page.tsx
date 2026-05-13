@@ -2,9 +2,9 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase, fetchAssignments, updateAssignment } from '@/lib/supabase';
+import { fetchAssignments, updateAssignment } from '@/lib/supabase';
 import type { Assignment, FilterTab } from '@/lib/types';
-import { CheckCircle2, EyeOff, RefreshCw, LogOut, InboxIcon, Settings } from 'lucide-react';
+import { CheckCircle2, EyeOff, RefreshCw, InboxIcon, Settings } from 'lucide-react';
 import AuthGuard from '@/components/AuthGuard';
 import FilterBar from '@/components/FilterBar';
 import TaskCard from '@/components/TaskCard';
@@ -100,15 +100,7 @@ function AssignmentList() {
     hidden:    assignments.filter((a) => a.is_hidden).length,
   };
 
-  // =============================================
-  // ログアウト
-  // =============================================
   const pullIndicatorRef = usePullToRefresh(loadData, !loading);
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.replace('/login');
-  }
 
   // =============================================
   // 描画
@@ -152,13 +144,6 @@ function AssignmentList() {
             aria-label="設定"
           >
             <Settings size={18} />
-          </button>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 text-white text-sm px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors dark:bg-white/10 dark:hover:bg-white/20"
-          >
-            <LogOut size={14} />
-            ログアウト
           </button>
         </div>
       </header>
@@ -232,7 +217,7 @@ function EmptyState({ tab }: { tab: FilterTab }) {
     <div className="flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-500">
       <div className="mb-4">{icon}</div>
       <p className="text-sm font-medium">{text}</p>
-      <p className="text-xs mt-1 text-slate-400 dark:text-slate-500">WebClass で拡張機能を実行してください</p>
+      <p className="text-xs mt-1 text-slate-400 dark:text-slate-500">WebClass で拡張機能またはブックマークレットを実行してください</p>
     </div>
   );
 }

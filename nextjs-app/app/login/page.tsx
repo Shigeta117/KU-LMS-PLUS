@@ -8,11 +8,9 @@ export default function LoginPage() {
   const router = useRouter();
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState('');
 
-  // ログイン済みなら /  へ
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) router.replace('/');
@@ -25,21 +23,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        setError('確認メールを送信しました。メールを確認してください。');
-        setLoading(false);
-        return;
-      }
-
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       router.replace('/');
     } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : 'エラーが発生しました'
-      );
+      setError(err instanceof Error ? err.message : 'ログインに失敗しました');
       setLoading(false);
     }
   }
@@ -88,21 +76,14 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              autoComplete={isSignUp ? 'new-password' : 'current-password'}
+              autoComplete="current-password"
               placeholder="••••••••"
               className="w-full px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-sm focus:outline-none focus:border-[#0066cc] dark:focus:border-blue-400 transition-colors"
             />
           </div>
 
           {error && (
-            <p
-              className={[
-                'text-sm rounded-lg px-3 py-2',
-                error.includes('メール')
-                  ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
-                  : 'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400',
-              ].join(' ')}
-            >
+            <p className="text-sm rounded-lg px-3 py-2 bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400">
               {error}
             </p>
           )}
@@ -113,21 +94,7 @@ export default function LoginPage() {
             className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
             style={{ background: loading ? '#94a3b8' : '#004a8f' }}
           >
-            {loading
-              ? '処理中…'
-              : isSignUp
-              ? 'アカウントを作成'
-              : 'ログイン'}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => { setIsSignUp(!isSignUp); setError(''); }}
-            className="w-full text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-          >
-            {isSignUp
-              ? 'すでにアカウントをお持ちの方はこちら'
-              : '新規アカウントを作成'}
+            {loading ? '処理中…' : 'ログイン'}
           </button>
         </form>
       </div>
