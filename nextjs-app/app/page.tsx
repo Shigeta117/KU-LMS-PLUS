@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, fetchAssignments, updateAssignment } from '@/lib/supabase';
 import type { Assignment, FilterTab } from '@/lib/types';
-import { CheckCircle2, EyeOff, RefreshCw, LogOut, InboxIcon } from 'lucide-react';
+import { CheckCircle2, EyeOff, RefreshCw, LogOut, InboxIcon, Settings } from 'lucide-react';
 import AuthGuard from '@/components/AuthGuard';
 import FilterBar from '@/components/FilterBar';
 import TaskCard from '@/components/TaskCard';
@@ -137,7 +137,7 @@ function AssignmentList() {
               : '課題一覧'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={loadData}
             disabled={loading}
@@ -145,6 +145,13 @@ function AssignmentList() {
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             更新
+          </button>
+          <button
+            onClick={() => router.push('/settings')}
+            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/20 transition-colors"
+            aria-label="設定"
+          >
+            <Settings size={18} />
           </button>
           <button
             onClick={handleLogout}
