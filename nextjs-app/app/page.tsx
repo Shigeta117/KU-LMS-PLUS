@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { fetchAssignments, updateAssignment } from '@/lib/supabase';
+import { supabase, fetchAssignments, updateAssignment } from '@/lib/supabase';
 import type { Assignment, FilterTab } from '@/lib/types';
 import { getDeadlineUrgency } from '@/lib/types';
 import { CheckCircle2, EyeOff, RefreshCw, InboxIcon, Settings, RotateCcw } from 'lucide-react';
@@ -59,6 +59,18 @@ function AssignmentList() {
 
   useEffect(() => {
     loadData();
+  }, [loadData]);
+
+  // Supabase Realtime: 拡張機能やブックマークレットのUPSERT後に自動再取得
+  useEffect(() => {
+    const channel = supabase
+      .channel('assignments-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, () => {
+        loadData();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [loadData]);
 
   // =============================================
