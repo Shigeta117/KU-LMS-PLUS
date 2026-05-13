@@ -24,6 +24,7 @@ if (!window.__KU_KMS_INJECTED) {
 function runUIEnhancements() {
   if (document.querySelector('section.list-group-item.cl-contentsList_listGroupItem')) {
     injectDeadlineBadges();
+    injectActionButtons();
   }
   if (document.querySelector('table#schedule-table')) {
     injectMiniDashboard();
@@ -85,6 +86,80 @@ function injectDeadlineBadges() {
       el.appendChild(badge);
     });
   });
+}
+
+// 授業ページ: 各課題ブロックに「完了」「非表示」ボタンを挿入し Supabase を更新
+function injectActionButtons() {
+  const courseId = extractCourseId(window.location.href);
+  if (!courseId) return;
+
+  document.querySelectorAll('section.list-group-item.cl-contentsList_listGroupItem').forEach((section) => {
+    if (section.querySelector('[data-kulms-actions]')) return;
+
+    const rawTitle = section.querySelector('.cm-contentsList_contentName')?.textContent ?? '';
+    const title    = rawTitle.replace(/\bNew\b/g, '').replace(/\s+/g, ' ').trim();
+    if (!title) return;
+
+    const bar = document.createElement('div');
+    bar.setAttribute('data-kulms-actions', '');
+    bar.style.cssText = 'display:flex;gap:6px;padding:5px 8px 7px;border-top:1px solid rgba(0,0,0,.06);';
+
+    const completeBtn = makeLmsBtn('✓ 完了', '#16a34a', '#fff');
+    const hideBtn     = makeLmsBtn('非表示', '#64748b', '#fff');
+
+    async function applyAction(field, btn, other) {
+      btn.disabled   = true;
+      other.disabled = true;
+      const prev     = btn.textContent;
+      btn.textContent = '更新中…';
+
+      const res = await chrome.runtime.sendMessage({
+        type: 'UPDATE_ASSIGNMENT', courseId, title, field, value: true,
+      });
+
+      if (res?.ok) {
+        if (field === 'is_completed_manual') {
+          section.style.opacity = '0.45';
+          completeBtn.textContent = '✓ 完了済み';
+          completeBtn.style.cssText = [
+            'background:#dcfce7', 'color:#15803d', 'border:1px solid #86efac',
+            'border-radius:6px', 'padding:3px 10px', 'font-size:11px',
+            'font-weight:600', 'cursor:default',
+            'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+          ].join(';');
+          hideBtn.style.display = 'none';
+        } else {
+          section.style.opacity      = '0.2';
+          section.style.pointerEvents = 'none';
+        }
+      } else {
+        btn.textContent = prev;
+        btn.disabled    = false;
+        other.disabled  = false;
+      }
+    }
+
+    completeBtn.addEventListener('click', () => applyAction('is_completed_manual', completeBtn, hideBtn));
+    hideBtn.addEventListener('click',     () => applyAction('is_hidden',            hideBtn,     completeBtn));
+
+    bar.appendChild(completeBtn);
+    bar.appendChild(hideBtn);
+    (section.querySelector('.cl-contentsList_content') ?? section).appendChild(bar);
+  });
+}
+
+function makeLmsBtn(label, bg, color) {
+  const btn = document.createElement('button');
+  btn.textContent = label;
+  btn.style.cssText = [
+    `background:${bg}`, `color:${color}`,
+    'border:none', 'border-radius:6px', 'padding:3px 10px',
+    'font-size:11px', 'font-weight:600', 'cursor:pointer', 'transition:opacity .15s',
+    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+  ].join(';');
+  btn.addEventListener('mouseover', () => { if (!btn.disabled) btn.style.opacity = '.8'; });
+  btn.addEventListener('mouseout',  () => { btn.style.opacity = '1'; });
+  return btn;
 }
 
 // トップページ: KU-LMS+ ミニダッシュボードをサイドバー最上部に挿入

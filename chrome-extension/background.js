@@ -65,6 +65,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         .catch((err) => sendResponse({ ok: false, error: err.message }));
       return true;
 
+    case 'UPDATE_ASSIGNMENT': {
+      const ALLOWED = new Set(['is_completed_manual', 'is_hidden']);
+      if (!ALLOWED.has(message.field)) {
+        sendResponse({ ok: false, error: 'Invalid field' });
+        return false;
+      }
+      updateAssignment(message.courseId, message.title, message.field, message.value)
+        .then(() => sendResponse({ ok: true }))
+        .catch((err) => sendResponse({ ok: false, error: err.message }));
+      return true;
+    }
+
     case 'SCRAPE_STATUS':
       console.info('[KU-LMS+]', message.status, message.detail ?? '');
       // scanning / fetching / uploading → 同期中に遷移
@@ -77,6 +89,38 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return false;
   }
 });
+
+// =============================================
+// Supabase REST: 個別レコードのステータス更新
+// =============================================
+async function updateAssignment(courseId, title, field, value) {
+  const { userId, accessToken: token } = await chrome.storage.local.get(['userId', 'accessToken']);
+  if (!token || !userId) throw new Error('未ログイン');
+
+  // RLS により user_id は自動フィルタ。course_id + title でレコードを特定
+  const filter = `course_id=eq.${encodeURIComponent(courseId)}&title=eq.${encodeURIComponent(title)}`;
+  const doReq  = (jwt) =>
+    fetch(`${REST_URL}/assignments?${filter}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey:         SUPABASE_ANON_KEY,
+        Authorization:  `Bearer ${jwt}`,
+        Prefer:         'return=minimal',
+      },
+      body: JSON.stringify({ [field]: value }),
+    });
+
+  let res = await doReq(token);
+  if (res.status === 401) {
+    const newToken = await refreshAccessToken();
+    res = await doReq(newToken);
+  }
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Supabase PATCH error (${res.status}): ${body}`);
+  }
+}
 
 // =============================================
 // Supabase Auth: Email / Password ログイン

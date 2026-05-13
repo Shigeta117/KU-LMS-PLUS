@@ -46,7 +46,7 @@ function SettingsContent() {
   }, []);
 
   const loaderCode = origin
-    ? `javascript:(function(){var s=document.createElement('script');s.src='${origin}/bookmarklet.js?_='+Date.now();document.body.appendChild(s)})();`
+    ? `javascript:(function(){var s=document.createElement('script');s.src='${origin}/api/bookmarklet?_='+Date.now();document.body.appendChild(s)})();`
     : '';
 
   async function handleCopy() {

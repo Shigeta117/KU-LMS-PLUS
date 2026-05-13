@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { FilterTab } from '@/lib/types';
 import { getDeadlineUrgency } from '@/lib/types';
 import { useAssignments } from '@/lib/useAssignments';
-import { CheckCircle2, EyeOff, RefreshCw, InboxIcon, Settings, RotateCcw, Clock, FileText } from 'lucide-react';
+import { CheckCircle2, EyeOff, RefreshCw, InboxIcon, Settings, Clock, FileText } from 'lucide-react';
 import AuthGuard from '@/components/AuthGuard';
 import FilterBar from '@/components/FilterBar';
 import TaskCard from '@/components/TaskCard';
@@ -25,7 +25,6 @@ function AssignmentList() {
   const {
     assignments, loading, error, lastUpdated,
     loadData, handleToggleComplete, handleToggleHidden,
-    undoEntry, handleUndo,
   } = useAssignments();
 
   const [activeTab,            setActiveTab]            = useState<FilterTab>('pending');
@@ -203,21 +202,6 @@ function AssignmentList() {
         )}
       </main>
 
-      {/* Undo トースト */}
-      {undoEntry && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none">
-          <div className="pointer-events-auto mx-3 mb-4 sm:max-w-sm w-full bg-slate-800 dark:bg-slate-700 rounded-2xl shadow-xl px-4 py-3 flex items-center gap-3 animate-[slide-up_0.25s_ease-out]">
-            <p className="flex-1 text-sm text-white font-medium">{undoEntry.label}</p>
-            <button
-              onClick={handleUndo}
-              className="flex items-center gap-1.5 text-xs font-semibold text-blue-300 hover:text-blue-200 transition-colors flex-shrink-0"
-            >
-              <RotateCcw size={13} />
-              元に戻す
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

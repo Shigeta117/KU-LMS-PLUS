@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
@@ -11,10 +11,16 @@ export default function LoginPage() {
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState('');
 
+  // ログイン済みなら即リダイレクト（getSession 不要 — onAuthStateChange が初回セッションも発火）
+  const redirectedRef = useRef(false);
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace('/');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session && !redirectedRef.current) {
+        redirectedRef.current = true;
+        router.replace('/');
+      }
     });
+    return () => subscription.unsubscribe();
   }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
