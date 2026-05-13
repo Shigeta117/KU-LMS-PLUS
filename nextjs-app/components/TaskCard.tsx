@@ -1,5 +1,6 @@
 'use client';
 
+import { Check } from 'lucide-react';
 import type { Assignment, DeadlineUrgency } from '@/lib/types';
 import { getDeadlineUrgency, formatDeadline } from '@/lib/types';
 
@@ -109,7 +110,11 @@ export default function TaskCard({
             title
           )}
           {is_completed_manual && (
-            <span className="ml-1.5 text-xs text-emerald-600">✓</span>
+            <Check
+              size={13}
+              strokeWidth={2.5}
+              className="inline ml-1 text-emerald-600 translate-y-[-1px]"
+            />
           )}
         </h3>
 

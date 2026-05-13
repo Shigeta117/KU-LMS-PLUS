@@ -6,15 +6,30 @@
 const bg = (type, payload = {}) =>
   chrome.runtime.sendMessage({ type, ...payload });
 
-function showStatus(msg, type = 'info') {
-  const el = document.getElementById('statusMsg');
+function showToast(msg, type = 'info') {
+  const el = document.getElementById('toast');
   el.textContent = msg;
-  el.className = `status show status-${type}`;
-  // 4秒後に自動消去
+  el.className = `toast show toast-${type}`;
   clearTimeout(el.__timer);
-  el.__timer = setTimeout(() => {
-    el.className = 'status';
-  }, 4000);
+  el.__timer = setTimeout(() => { el.className = 'toast'; }, 4000);
+}
+
+function setLoginError(msg) {
+  const el = document.getElementById('loginError');
+  if (msg) {
+    el.textContent = msg;
+    el.className = 'form-error show';
+  } else {
+    el.className = 'form-error';
+  }
+}
+
+function clearFieldErrors() {
+  document.getElementById('emailError').className    = 'field-error';
+  document.getElementById('passwordError').className = 'field-error';
+  document.getElementById('email').classList.remove('error');
+  document.getElementById('password').classList.remove('error');
+  setLoginError('');
 }
 
 // =============================================
@@ -26,55 +41,96 @@ async function refreshAuthBadge() {
   const text = document.getElementById('authText');
 
   if (loggedIn) {
-    dot.className  = 'dot dot-green';
+    dot.className    = 'dot dot-green';
     text.textContent = `ログイン中 (${userId?.slice(0, 8)}…)`;
   } else {
-    dot.className  = 'dot dot-red';
+    dot.className    = 'dot dot-red';
     text.textContent = '未ログイン';
   }
 }
 
 // =============================================
-// 設定値の読み込み
+// 同期状態の表示
 // =============================================
-async function loadSettings() {
-  const { supabaseUrl, supabaseAnonKey } = await chrome.storage.local.get([
-    'supabaseUrl',
-    'supabaseAnonKey',
-  ]);
-  if (supabaseUrl)    document.getElementById('supabaseUrl').value    = supabaseUrl;
-  if (supabaseAnonKey) document.getElementById('supabaseAnonKey').value = supabaseAnonKey;
+const SYNC_CONFIG = {
+  idle:    { dotClass: 'sync-dot sync-dot-idle',    label: '待機中' },
+  syncing: { dotClass: 'sync-dot sync-dot-syncing', label: '同期中…' },
+  success: { dotClass: 'sync-dot sync-dot-success', label: '同期成功' },
+  error:   { dotClass: 'sync-dot sync-dot-error',   label: 'エラー' },
+};
+
+async function refreshSyncStatus() {
+  const { syncStatus, lastSyncAt, lastSyncCount, lastSyncError } =
+    await chrome.storage.local.get([
+      'syncStatus', 'lastSyncAt', 'lastSyncCount', 'lastSyncError',
+    ]);
+
+  const status = syncStatus ?? 'idle';
+  const cfg    = SYNC_CONFIG[status] ?? SYNC_CONFIG.idle;
+
+  document.getElementById('syncDot').className        = cfg.dotClass;
+  document.getElementById('syncStatusText').textContent = cfg.label;
+
+  const detailEl = document.getElementById('syncDetail');
+  detailEl.className = 'sync-detail-text';
+
+  if (status === 'success') {
+    const parts = [];
+    if (lastSyncCount != null) parts.push(`${lastSyncCount} 件収集`);
+    if (lastSyncAt)            parts.push(formatSyncTime(lastSyncAt));
+    detailEl.textContent = parts.join(' · ');
+  } else if (status === 'error') {
+    detailEl.className   = 'sync-detail-text error';
+    detailEl.textContent = lastSyncError ?? '不明なエラー';
+  } else if (status === 'idle' && lastSyncAt) {
+    detailEl.textContent = `最終同期: ${formatSyncTime(lastSyncAt)}`;
+  } else {
+    detailEl.textContent = '';
+  }
+}
+
+function formatSyncTime(iso) {
+  return new Date(iso).toLocaleString('ja-JP', {
+    month: 'numeric', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
 }
 
 // =============================================
 // 初期化
 // =============================================
 document.addEventListener('DOMContentLoaded', async () => {
-  await loadSettings();
   await refreshAuthBadge();
+  await refreshSyncStatus();
 
-  // ---------- 設定保存 ----------
-  document.getElementById('saveSettingsBtn').addEventListener('click', async () => {
-    const url = document.getElementById('supabaseUrl').value.trim().replace(/\/+$/, '');
-    const key = document.getElementById('supabaseAnonKey').value.trim();
-
-    if (!url || !key) {
-      showStatus('URL と Anon Key を入力してください', 'error');
-      return;
-    }
-    await chrome.storage.local.set({ supabaseUrl: url, supabaseAnonKey: key });
-    showStatus('設定を保存しました', 'success');
+  // ストレージ変更をリアルタイムに反映
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if ('syncStatus' in changes || 'lastSyncAt' in changes) refreshSyncStatus();
+    if ('accessToken' in changes || 'userId' in changes)     refreshAuthBadge();
   });
 
   // ---------- ログイン ----------
   document.getElementById('loginBtn').addEventListener('click', async () => {
+    clearFieldErrors();
+
     const email    = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
+    let valid = true;
 
-    if (!email || !password) {
-      showStatus('メールアドレスとパスワードを入力してください', 'error');
-      return;
+    if (!email) {
+      document.getElementById('emailError').textContent = 'メールアドレスを入力してください';
+      document.getElementById('emailError').className   = 'field-error show';
+      document.getElementById('email').classList.add('error');
+      valid = false;
     }
+    if (!password) {
+      document.getElementById('passwordError').textContent = 'パスワードを入力してください';
+      document.getElementById('passwordError').className   = 'field-error show';
+      document.getElementById('password').classList.add('error');
+      valid = false;
+    }
+    if (!valid) return;
 
     const btn = document.getElementById('loginBtn');
     btn.disabled    = true;
@@ -87,18 +143,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (res.ok) {
       document.getElementById('password').value = '';
-      showStatus('ログインしました', 'success');
+      showToast('ログインしました', 'success');
       await refreshAuthBadge();
     } else {
-      showStatus(res.error ?? 'ログインに失敗しました', 'error');
+      // パスワード・メール違いはフィールドをハイライト
+      const msg = res.error ?? 'ログインに失敗しました';
+      if (msg.includes('パスワード') || msg.includes('メールアドレスまたはパスワード')) {
+        document.getElementById('password').classList.add('error');
+      }
+      setLoginError(msg);
+      console.error('[KU-KMS+] Login error:', res.error, 'code:', res.code);
     }
   });
 
   // ---------- ログアウト ----------
   document.getElementById('logoutBtn').addEventListener('click', async () => {
     await bg('LOGOUT');
-    showStatus('ログアウトしました', 'info');
+    showToast('ログアウトしました', 'info');
     await refreshAuthBadge();
+    await refreshSyncStatus();
   });
 
   // ---------- 手動スクレイプ ----------
@@ -106,7 +169,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
     if (!tab?.url?.includes('webclass.ku-portal.kansai-u.ac.jp')) {
-      showStatus('WebClass のトップページを開いた状態で実行してください', 'error');
+      setLoginError('WebClass のトップページを開いた状態で実行してください');
       return;
     }
 
@@ -119,9 +182,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         target: { tabId: tab.id },
         files: ['content.js'],
       });
-      showStatus('収集を開始しました。完了後バッジに件数が表示されます。', 'success');
+      showToast('収集を開始しました', 'success');
     } catch (e) {
-      showStatus(`エラー: ${e.message}`, 'error');
+      setLoginError(`スクリプト注入エラー: ${e.message}`);
+      console.error('[KU-KMS+] executeScript error:', e);
     } finally {
       setTimeout(() => {
         btn.disabled    = false;
@@ -134,4 +198,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('password').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') document.getElementById('loginBtn').click();
   });
+
+  // メール入力でエラーをクリア
+  document.getElementById('email').addEventListener('input', clearFieldErrors);
+  document.getElementById('password').addEventListener('input', clearFieldErrors);
 });

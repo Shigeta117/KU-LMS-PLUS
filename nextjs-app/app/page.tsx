@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, fetchAssignments, updateAssignment } from '@/lib/supabase';
 import type { Assignment, FilterTab } from '@/lib/types';
+import { CheckCircle2, EyeOff, RefreshCw, LogOut, InboxIcon } from 'lucide-react';
 import AuthGuard from '@/components/AuthGuard';
 import FilterBar from '@/components/FilterBar';
 import TaskCard from '@/components/TaskCard';
@@ -122,14 +123,16 @@ function AssignmentList() {
           <button
             onClick={loadData}
             disabled={loading}
-            className="text-white text-sm px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 text-white text-sm px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50"
           >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             更新
           </button>
           <button
             onClick={handleLogout}
-            className="text-white text-sm px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors"
+            className="flex items-center gap-1.5 text-white text-sm px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors"
           >
+            <LogOut size={14} />
             ログアウト
           </button>
         </div>
@@ -184,18 +187,27 @@ function AssignmentList() {
 }
 
 function EmptyState({ tab }: { tab: FilterTab }) {
-  const messages: Record<FilterTab, { emoji: string; text: string }> = {
-    pending:   { emoji: '🎉', text: '未完了の課題はありません' },
-    completed: { emoji: '✅', text: '完了済みの課題はありません' },
-    hidden:    { emoji: '👁',  text: '非表示にした課題はありません' },
+  const config: Record<FilterTab, { icon: React.ReactNode; text: string }> = {
+    pending: {
+      icon: <InboxIcon size={40} strokeWidth={1.5} className="text-slate-300" />,
+      text: '未完了の課題はありません',
+    },
+    completed: {
+      icon: <CheckCircle2 size={40} strokeWidth={1.5} className="text-slate-300" />,
+      text: '完了済みの課題はありません',
+    },
+    hidden: {
+      icon: <EyeOff size={40} strokeWidth={1.5} className="text-slate-300" />,
+      text: '非表示にした課題はありません',
+    },
   };
-  const { emoji, text } = messages[tab];
+  const { icon, text } = config[tab];
 
   return (
     <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-      <span className="text-5xl mb-3">{emoji}</span>
-      <p className="text-sm">{text}</p>
-      <p className="text-xs mt-1">WebClass で拡張機能を実行してください</p>
+      <div className="mb-4">{icon}</div>
+      <p className="text-sm font-medium">{text}</p>
+      <p className="text-xs mt-1 text-slate-400">WebClass で拡張機能を実行してください</p>
     </div>
   );
 }

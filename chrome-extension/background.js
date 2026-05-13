@@ -1,10 +1,22 @@
 'use strict';
 
+// ============================================================
+// ▼▼▼ 配布前にここを書き換えてください ▼▼▼
+// Supabase ダッシュボード > Project Settings > API から取得
+// ============================================================
+const SUPABASE_URL      = 'https://jjjndffkyuvlwwcqcurt.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_DZj-CpBoQgnSFnkjcb9ZkQ_7m7g72V1';
+// ▲▲▲ ここまで ▲▲▲
+
+const AUTH_URL = `${SUPABASE_URL}/auth/v1`;
+const REST_URL = `${SUPABASE_URL}/rest/v1`;
+
 // =============================================
-// Supabase エンドポイントヘルパー
+// 同期状態の永続化
 // =============================================
-const authUrl = (base) => `${base}/auth/v1`;
-const restUrl = (base) => `${base}/rest/v1`;
+async function saveSyncStatus(status, extra = {}) {
+  await chrome.storage.local.set({ syncStatus: status, ...extra });
+}
 
 // =============================================
 // webNavigation: WebClass ページで自動スクレイプ
@@ -35,11 +47,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     case 'LOGIN':
       login(message.email, message.password)
         .then((data) => sendResponse({ ok: true, data }))
-        .catch((err) => sendResponse({ ok: false, error: err.message }));
+        .catch((err) => sendResponse({ ok: false, error: err.message, code: err.code }));
       return true;
 
     case 'LOGOUT':
       chrome.storage.local.remove(['accessToken', 'refreshToken', 'userId']);
+      saveSyncStatus('idle', { lastSyncAt: null, lastSyncCount: null, lastSyncError: null });
       sendResponse({ ok: true });
       return false;
 
@@ -58,8 +71,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return true;
 
     case 'SCRAPE_STATUS':
-      // content.js からの進捗通知（デバッグ用）
       console.info('[KU-KMS+]', message.status, message.detail ?? '');
+      // scanning / fetching / uploading → 同期中に遷移
+      if (['scanning', 'fetching', 'uploading'].includes(message.status)) {
+        saveSyncStatus('syncing');
+      }
       return false;
 
     default:
@@ -71,69 +87,72 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 // Supabase Auth: Email / Password ログイン
 // =============================================
 async function login(email, password) {
-  const { supabaseUrl, supabaseAnonKey } = await chrome.storage.local.get([
-    'supabaseUrl',
-    'supabaseAnonKey',
-  ]);
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase URL と Anon Key を先に設定してください');
-  }
-
-  const res = await fetch(
-    `${authUrl(supabaseUrl)}/token?grant_type=password`,
-    {
+  let res;
+  try {
+    res = await fetch(`${AUTH_URL}/token?grant_type=password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        apikey: supabaseAnonKey,
+        apikey: SUPABASE_ANON_KEY,
       },
       body: JSON.stringify({ email, password }),
-    }
-  );
+    });
+  } catch {
+    const err = new Error('ネットワークエラー。接続を確認してください。');
+    err.code = 'NETWORK_ERROR';
+    throw err;
+  }
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      err.error_description || err.message || 'ログイン失敗'
-    );
+    const body = await res.json().catch(() => ({}));
+    const raw  = body.error_description || body.msg || body.message || '';
+    console.error('[KU-KMS+] Login failed', res.status, raw);
+
+    const err = new Error(translateAuthError(res.status, raw));
+    err.code  = `HTTP_${res.status}`;
+    throw err;
   }
 
   const data = await res.json();
   await chrome.storage.local.set({
-    accessToken: data.access_token,
+    accessToken:  data.access_token,
     refreshToken: data.refresh_token,
-    userId: data.user?.id,
+    userId:       data.user?.id,
   });
 
   return { userId: data.user?.id };
+}
+
+function translateAuthError(status, raw) {
+  if (status === 429)       return 'ログイン試行回数が多すぎます。しばらく待ってから試してください。';
+  if (status === 422)       return 'メールアドレスの形式が正しくありません。';
+  const lower = raw.toLowerCase();
+  if (lower.includes('invalid login credentials') || lower.includes('invalid password'))
+    return 'メールアドレスまたはパスワードが違います。';
+  if (lower.includes('email not confirmed'))
+    return 'メールアドレスが未確認です。確認メールをチェックしてください。';
+  if (lower.includes('user not found'))
+    return 'このメールアドレスは登録されていません。';
+  return `ログイン失敗 (${status})`;
 }
 
 // =============================================
 // Supabase Auth: トークンリフレッシュ
 // =============================================
 async function refreshAccessToken() {
-  const { supabaseUrl, supabaseAnonKey, refreshToken } =
-    await chrome.storage.local.get([
-      'supabaseUrl',
-      'supabaseAnonKey',
-      'refreshToken',
-    ]);
-
+  const { refreshToken } = await chrome.storage.local.get(['refreshToken']);
   if (!refreshToken) {
     throw new Error('セッションが切れています。再ログインしてください。');
   }
 
-  const res = await fetch(
-    `${authUrl(supabaseUrl)}/token?grant_type=refresh_token`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: supabaseAnonKey,
-      },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    }
-  );
+  const res = await fetch(`${AUTH_URL}/token?grant_type=refresh_token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
 
   if (!res.ok) {
     throw new Error('セッション更新に失敗しました。再ログインしてください。');
@@ -141,7 +160,7 @@ async function refreshAccessToken() {
 
   const data = await res.json();
   await chrome.storage.local.set({
-    accessToken: data.access_token,
+    accessToken:  data.access_token,
     refreshToken: data.refresh_token,
   });
 
@@ -150,53 +169,46 @@ async function refreshAccessToken() {
 
 // =============================================
 // Supabase REST: UPSERT
-// ユーザー操作フィールド（is_completed_manual, is_hidden）は
-// payload に含めないため ON CONFLICT 時も上書きされない
+// is_completed_manual / is_hidden は payload に含めないため
+// ON CONFLICT 時もユーザーの手動操作が上書きされない
 // =============================================
 async function upsertAssignments(assignments) {
   if (!assignments?.length) return 0;
 
-  const { supabaseUrl, supabaseAnonKey, userId, accessToken: token } =
-    await chrome.storage.local.get([
-      'supabaseUrl',
-      'supabaseAnonKey',
-      'userId',
-      'accessToken',
-    ]);
+  const { userId, accessToken: token } = await chrome.storage.local.get([
+    'userId',
+    'accessToken',
+  ]);
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('拡張機能の設定が不完全です。ポップアップから設定してください。');
-  }
   if (!token || !userId) {
-    throw new Error('ログインしていません。ポップアップからログインしてください。');
+    const err = 'ログインしていません。ポップアップからログインしてください。';
+    await saveSyncStatus('error', { lastSyncError: err });
+    throw new Error(err);
   }
 
-  const now = new Date().toISOString();
+  const now  = new Date().toISOString();
   const rows = assignments.map((a) => ({
-    user_id: userId,
-    course_id: a.course_id,
-    title: a.title,
-    category: a.category,
-    deadline: a.deadline,
-    detail_url: a.detail_url,
+    user_id:          userId,
+    course_id:        a.course_id,
+    title:            a.title,
+    category:         a.category,
+    deadline:         a.deadline,
+    detail_url:       a.detail_url,
     is_submitted_lms: a.is_submitted_lms,
-    updated_at: now,
+    updated_at:       now,
   }));
 
   const doRequest = (jwt) =>
-    fetch(
-      `${restUrl(supabaseUrl)}/assignments?on_conflict=user_id,course_id,title`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: supabaseAnonKey,
-          Authorization: `Bearer ${jwt}`,
-          Prefer: 'resolution=merge-duplicates,return=minimal',
-        },
-        body: JSON.stringify(rows),
-      }
-    );
+    fetch(`${REST_URL}/assignments?on_conflict=user_id,course_id,title`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey:         SUPABASE_ANON_KEY,
+        Authorization:  `Bearer ${jwt}`,
+        Prefer:         'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify(rows),
+    });
 
   let res = await doRequest(token);
 
@@ -207,14 +219,25 @@ async function upsertAssignments(assignments) {
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Supabase UPSERT error: ${body}`);
+    const errMsg = `Supabase UPSERT error (${res.status}): ${body}`;
+    console.error('[KU-KMS+]', errMsg);
+    await saveSyncStatus('error', { lastSyncError: errMsg });
+    throw new Error(errMsg);
   }
 
-  // バッジで件数を一時表示
   const count = rows.length;
+
+  // バッジで件数を一時表示
   chrome.action.setBadgeText({ text: `${count}` });
   chrome.action.setBadgeBackgroundColor({ color: '#22c55e' });
   setTimeout(() => chrome.action.setBadgeText({ text: '' }), 3000);
+
+  // ストレージに成功状態を保存
+  await saveSyncStatus('success', {
+    lastSyncAt:    now,
+    lastSyncCount: count,
+    lastSyncError: null,
+  });
 
   return count;
 }

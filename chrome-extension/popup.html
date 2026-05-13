@@ -8,7 +8,7 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      width: 320px;
+      width: 300px;
       font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Segoe UI', sans-serif;
       font-size: 13px;
       color: #1e293b;
@@ -25,7 +25,7 @@
     .header p  { font-size: 11px; opacity: .75; margin-top: 2px; }
 
     /* ---- Body ---- */
-    .body { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+    .body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
 
     .section-label {
       font-size: 10px;
@@ -36,7 +36,7 @@
       margin-bottom: 6px;
     }
 
-    /* ---- Auth badge ---- */
+    /* ---- 認証バッジ ---- */
     .auth-badge {
       display: flex;
       align-items: center;
@@ -56,6 +56,41 @@
     .dot-green { background: #22c55e; }
     .dot-red   { background: #ef4444; }
 
+    /* ---- 同期状態カード ---- */
+    .sync-card {
+      padding: 10px 12px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+    }
+    .sync-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .sync-dot {
+      flex-shrink: 0;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+    .sync-dot-idle    { background: #94a3b8; }
+    .sync-dot-syncing { background: #3b82f6; animation: blink .9s ease-in-out infinite; }
+    .sync-dot-success { background: #22c55e; }
+    .sync-dot-error   { background: #ef4444; }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+    .sync-status-text { font-weight: 600; color: #374151; }
+    .sync-detail-text {
+      margin-top: 4px;
+      font-size: 11px;
+      color: #64748b;
+      padding-left: 16px;
+    }
+    .sync-detail-text.error { color: #dc2626; }
+
     /* ---- Form ---- */
     .field { display: flex; flex-direction: column; gap: 4px; }
     label  { font-size: 12px; font-weight: 500; color: #374151; }
@@ -69,6 +104,7 @@
       transition: border-color .15s;
     }
     input:focus { outline: none; border-color: #0066cc; }
+    input.error { border-color: #ef4444; }
     input::placeholder { color: #9ca3af; }
 
     /* ---- Buttons ---- */
@@ -82,36 +118,51 @@
       transition: background .15s, opacity .15s;
     }
     .btn:disabled { opacity: .45; cursor: not-allowed; }
-    .btn-primary  { background: #0066cc; color: #fff; }
+    .btn-primary { background: #0066cc; color: #fff; }
     .btn-primary:not(:disabled):hover { background: #0052a3; }
-    .btn-ghost    { background: #f1f5f9; color: #374151; border: 1px solid #e2e8f0; }
-    .btn-ghost:not(:disabled):hover { background: #e2e8f0; }
-    .btn-danger   { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
+    .btn-danger  { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
     .btn-danger:not(:disabled):hover { background: #fecaca; }
-    .btn-scrape   { background: #004a8f; color: #fff; width: 100%; }
+    .btn-scrape  { background: #004a8f; color: #fff; width: 100%; }
     .btn-scrape:not(:disabled):hover { background: #003a72; }
 
     .row { display: flex; gap: 8px; }
     .row .btn { flex: 1; }
-
-    /* ---- Form group ---- */
     .form-stack { display: flex; flex-direction: column; gap: 8px; }
 
     /* ---- Divider ---- */
     .divider { height: 1px; background: #e2e8f0; }
 
-    /* ---- Status ---- */
-    .status {
+    /* ---- インラインエラー ---- */
+    .field-error {
+      display: none;
+      font-size: 11px;
+      color: #dc2626;
+      margin-top: 2px;
+    }
+    .field-error.show { display: block; }
+
+    /* ---- フォームレベルエラー ---- */
+    .form-error {
       display: none;
       padding: 8px 10px;
       border-radius: 6px;
       font-size: 12px;
-      line-height: 1.4;
+      line-height: 1.5;
+      background: #fee2e2;
+      color: #dc2626;
     }
-    .status.show { display: block; }
-    .status-success { background: #dcfce7; color: #166534; }
-    .status-error   { background: #fee2e2; color: #dc2626; }
-    .status-info    { background: #dbeafe; color: #1e40af; }
+    .form-error.show { display: block; }
+
+    /* ---- トースト ---- */
+    .toast {
+      display: none;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .toast.show     { display: block; }
+    .toast-success  { background: #dcfce7; color: #166534; }
+    .toast-info     { background: #dbeafe; color: #1e40af; }
   </style>
 </head>
 <body>
@@ -123,26 +174,20 @@
 
   <div class="body">
 
-    <!-- 認証状態 -->
+    <!-- 認証状態バッジ -->
     <div class="auth-badge">
       <div class="dot dot-red" id="authDot"></div>
       <span id="authText">未ログイン</span>
     </div>
 
-    <!-- Supabase 設定 -->
-    <div>
-      <div class="section-label">Supabase 設定</div>
-      <div class="form-stack">
-        <div class="field">
-          <label for="supabaseUrl">Project URL</label>
-          <input type="url" id="supabaseUrl" placeholder="https://xxxx.supabase.co">
-        </div>
-        <div class="field">
-          <label for="supabaseAnonKey">Anon Key</label>
-          <input type="password" id="supabaseAnonKey" placeholder="eyJh...">
-        </div>
-        <button class="btn btn-ghost" id="saveSettingsBtn">設定を保存</button>
+    <!-- 同期状態カード -->
+    <div class="sync-card">
+      <div class="section-label">同期状態</div>
+      <div class="sync-row">
+        <div class="sync-dot sync-dot-idle" id="syncDot"></div>
+        <span class="sync-status-text" id="syncStatusText">待機中</span>
       </div>
+      <div class="sync-detail-text" id="syncDetail"></div>
     </div>
 
     <div class="divider"></div>
@@ -151,18 +196,27 @@
     <div>
       <div class="section-label">アカウント</div>
       <div class="form-stack">
+
         <div class="field">
           <label for="email">メールアドレス</label>
           <input type="email" id="email" placeholder="your@email.com" autocomplete="username">
+          <span class="field-error" id="emailError"></span>
         </div>
+
         <div class="field">
           <label for="password">パスワード</label>
           <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+          <span class="field-error" id="passwordError"></span>
         </div>
+
+        <!-- ログイン系エラー（フォームレベル） -->
+        <div class="form-error" id="loginError"></div>
+
         <div class="row">
           <button class="btn btn-primary" id="loginBtn">ログイン</button>
           <button class="btn btn-danger"  id="logoutBtn">ログアウト</button>
         </div>
+
       </div>
     </div>
 
@@ -171,8 +225,8 @@
     <!-- 手動収集 -->
     <button class="btn btn-scrape" id="scrapeBtn">今すぐ課題を収集</button>
 
-    <!-- ステータスメッセージ -->
-    <div class="status" id="statusMsg"></div>
+    <!-- トースト通知 -->
+    <div class="toast" id="toast"></div>
 
   </div>
 
