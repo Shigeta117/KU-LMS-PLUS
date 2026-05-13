@@ -219,9 +219,14 @@
   }
 
   // 日時範囲文字列から { start_time, deadline } を抽出
+  // セパレータ: -(ハイフン) –(en dash) 〜 ～ →
+  var SEP_PATTERN = '[-–〜～→]';
   function parseDateRange(text) {
     var full = text.match(
-      /(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})\s*[-–]\s*(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/
+      new RegExp(
+        '(\\d{4})/(\\d{2})/(\\d{2})\\s+(\\d{2}):(\\d{2})\\s*' + SEP_PATTERN +
+        '\\s*(\\d{4})/(\\d{2})/(\\d{2})\\s+(\\d{2}):(\\d{2})'
+      )
     );
     if (full) {
       return {
@@ -229,7 +234,9 @@
         deadline:   full[6] + '-' + full[7] + '-' + full[8] + 'T' + full[9] + ':' + full[10] + ':00+09:00',
       };
     }
-    var deadlineOnly = text.match(/[-–]\s*(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
+    var deadlineOnly = text.match(
+      new RegExp(SEP_PATTERN + '\\s*(\\d{4})/(\\d{2})/(\\d{2})\\s+(\\d{2}):(\\d{2})')
+    );
     if (deadlineOnly) {
       return {
         start_time: null,
@@ -275,9 +282,11 @@
         try { detailUrl = new URL(detailHref, baseUrl).href; } catch (e) { detailUrl = detailHref; }
       }
 
-      var deadlineEl   = section.querySelector('.cm-contentsList_contentDetailListItemData');
-      var deadlineRaw  = deadlineEl ? deadlineEl.textContent : '';
-      var dateRange    = parseDateRange(deadlineRaw);
+      // 受付期間と締切が別々の要素に入るケースに対応するため全要素テキストを結合
+      var allDetailText = Array.from(
+        section.querySelectorAll('.cm-contentsList_contentDetailListItemData')
+      ).map(function (el) { return (el.textContent || '').trim(); }).filter(Boolean).join(' ');
+      var dateRange    = parseDateRange(allDetailText);
 
       var isSubmitted = !!section.querySelector('a[href*="/history"]');
 

@@ -131,9 +131,11 @@ function parseCoursePage(html, baseUrl, courseId, courseName) {
       catch { detailUrl = detailHref; }
     }
 
-    const deadlineRaw =
-      section.querySelector('.cm-contentsList_contentDetailListItemData')?.textContent ?? '';
-    const { start_time, deadline } = parseDateRange(deadlineRaw);
+    // 受付期間と締切が別々の要素に入るケースに対応するため全要素テキストを結合
+    const allDetailText = Array.from(
+      section.querySelectorAll('.cm-contentsList_contentDetailListItemData')
+    ).map((el) => (el.textContent ?? '').trim()).filter(Boolean).join(' ');
+    const { start_time, deadline } = parseDateRange(allDetailText);
 
     const isSubmittedLms = !!section.querySelector('a[href*="/history"]');
 
@@ -186,9 +188,13 @@ function extractCourseId(url) {
 }
 
 function parseDateRange(text) {
-  // "YYYY/MM/DD HH:MM - YYYY/MM/DD HH:MM" — 開始日時と締切日時の両方
+  // セパレータ: -(ハイフン) –(en dash) 〜 ～ →
+  const SEP = '[-–〜～→]';
+  // "YYYY/MM/DD HH:MM <sep> YYYY/MM/DD HH:MM" — 開始日時と締切日時の両方
   const full = text.match(
-    /(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})\s*[-–]\s*(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/
+    new RegExp(
+      `(\\d{4})/(\\d{2})/(\\d{2})\\s+(\\d{2}):(\\d{2})\\s*${SEP}\\s*(\\d{4})/(\\d{2})/(\\d{2})\\s+(\\d{2}):(\\d{2})`
+    )
   );
   if (full) {
     return {
@@ -196,8 +202,10 @@ function parseDateRange(text) {
       deadline:   `${full[6]}-${full[7]}-${full[8]}T${full[9]}:${full[10]}:00+09:00`,
     };
   }
-  // "- YYYY/MM/DD HH:MM" — 締切のみ
-  const deadlineOnly = text.match(/[-–]\s*(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
+  // "<sep> YYYY/MM/DD HH:MM" — 締切のみ
+  const deadlineOnly = text.match(
+    new RegExp(`${SEP}\\s*(\\d{4})/(\\d{2})/(\\d{2})\\s+(\\d{2}):(\\d{2})`)
+  );
   if (deadlineOnly) {
     return {
       start_time: null,
