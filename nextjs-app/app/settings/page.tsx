@@ -217,6 +217,16 @@ function SettingsContent() {
           </div>
         </div>
 
+        {/* フッターリンク */}
+        <div className="flex justify-center pb-2">
+          <button
+            onClick={() => router.push('/legal')}
+            className="text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors underline underline-offset-2"
+          >
+            利用規約・プライバシーポリシー
+          </button>
+        </div>
+
       </main>
     </div>
   );
