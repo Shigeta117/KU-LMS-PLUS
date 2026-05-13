@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft,
@@ -10,9 +10,13 @@ import {
   Bookmark,
   LogOut,
   Trash2,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
 import AuthGuard from '@/components/AuthGuard';
 import { supabase } from '@/lib/supabase';
+import { type ThemePreference, THEME_KEY, applyTheme } from '@/components/ThemeProvider';
 
 export default function SettingsPage() {
   return (
@@ -27,13 +31,21 @@ function SettingsContent() {
   const [origin, setOrigin] = useState('');
   const [copied, setCopied] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+  const [theme, setTheme] = useState<ThemePreference>('system');
 
   useEffect(() => {
     setOrigin(window.location.origin);
     supabase.auth.getUser().then(({ data }) => {
       setUserEmail(data.user?.email ?? '');
     });
+    setTheme((localStorage.getItem(THEME_KEY) ?? 'system') as ThemePreference);
   }, []);
+
+  function handleThemeChange(pref: ThemePreference) {
+    setTheme(pref);
+    localStorage.setItem(THEME_KEY, pref);
+    applyTheme(pref);
+  }
 
   const loaderCode = origin
     ? `javascript:(function(){var s=document.createElement('script');s.src='${origin}/bookmarklet.js?_='+Date.now();document.body.appendChild(s)})();`
@@ -82,6 +94,27 @@ function SettingsContent() {
       </header>
 
       <main className="flex-1 px-4 py-5 pb-safe-bottom space-y-4">
+
+        {/* テーマ設定 */}
+        <Section icon={<Monitor size={15} className="text-[#004a8f] dark:text-blue-400" />} title="テーマ">
+          <div className="flex gap-2">
+            {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                onClick={() => handleThemeChange(value)}
+                className={[
+                  'flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl border text-xs font-semibold transition-colors',
+                  theme === value
+                    ? 'bg-[#004a8f] dark:bg-blue-600 text-white border-[#004a8f] dark:border-blue-600'
+                    : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500',
+                ].join(' ')}
+              >
+                <Icon size={18} />
+                {label}
+              </button>
+            ))}
+          </div>
+        </Section>
 
         {/* ブックマークレット セクション */}
         <Section icon={<Smartphone size={15} className="text-[#004a8f] dark:text-blue-400" />} title="スマホ用更新ツール（ブックマークレット）">
@@ -254,4 +287,10 @@ const IOS_STEPS = [
     n: 4,
     text: 'WebClass のトップページ（時間割）を開き、アドレスバー横の「ブックマーク」ボタンから実行',
   },
+];
+
+const THEME_OPTIONS: { value: ThemePreference; label: string; icon: React.ElementType }[] = [
+  { value: 'system', label: 'システム', icon: Monitor },
+  { value: 'light',  label: 'ライト',   icon: Sun },
+  { value: 'dark',   label: 'ダーク',   icon: Moon },
 ];

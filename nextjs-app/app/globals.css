@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* dark: をクラスベースに変更（ThemeProvider が html.dark を制御）*/
+@variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-ku-blue: #004a8f;
   --color-ku-blue-dark: #003a72;
@@ -20,9 +23,7 @@ input[type="datetime-local"] {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
 
-@media (prefers-color-scheme: dark) {
-  ::-webkit-scrollbar-thumb { background: #475569; }
-}
+.dark ::-webkit-scrollbar-thumb { background: #475569; }
 
 @keyframes slide-up {
   from { transform: translateY(100%); opacity: 0; }
