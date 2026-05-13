@@ -298,6 +298,26 @@
         };
       });
 
+    // 時間割外コース（オンデマンド・集中・隔週等）を追加
+    ['courses_list_left', 'courses_list_right'].forEach(function (listId) {
+      var container = document.getElementById(listId);
+      if (!container) return;
+      container.querySelectorAll('.course-data-box-normal').forEach(function (box) {
+        if (!box.querySelector('.course-contents-info')) return;
+        var anchor = box.querySelector('.course-title a');
+        if (!anchor) return;
+        courseLinks.push({ url: anchor.href, courseName: extractCourseName(anchor.textContent || '') });
+      });
+    });
+
+    // 重複 URL を除去
+    var seen = {};
+    courseLinks = courseLinks.filter(function (item) {
+      if (seen[item.url]) return false;
+      seen[item.url] = true;
+      return true;
+    });
+
     if (!courseLinks.length) return [];
 
     var assignments = [];

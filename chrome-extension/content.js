@@ -18,6 +18,8 @@ async function runScraper() {
   sendStatus('scanning');
 
   // Step 1: 課題締切ありの授業リンクを抽出（授業名も同時取得）
+
+  // 1a. 時間割テーブルから（締切アイコン付きのセルにある a タグ）
   const courseLinks = Array.from(scheduleTable.querySelectorAll('a'))
     .filter((a) => a.querySelector('div.course-contents-info'))
     .map((a) => ({
@@ -25,16 +27,39 @@ async function runScraper() {
       courseName: extractCourseName(a.textContent ?? ''),
     }));
 
-  if (!courseLinks.length) {
+  // 1b. 時間割外コース（オンデマンド・集中・隔週等）を courses_list_left / right から追加
+  for (const listId of ['courses_list_left', 'courses_list_right']) {
+    const container = document.getElementById(listId);
+    if (!container) continue;
+    for (const box of container.querySelectorAll('.course-data-box-normal')) {
+      if (!box.querySelector('.course-contents-info')) continue;
+      const anchor = box.querySelector('.course-title a');
+      if (!anchor) continue;
+      courseLinks.push({
+        url:        anchor.href,
+        courseName: extractCourseName(anchor.textContent ?? ''),
+      });
+    }
+  }
+
+  // 重複 URL を除去（時間割とコースリストで同じ授業が現れる場合）
+  const seen = new Set();
+  const uniqueLinks = courseLinks.filter(({ url }) => {
+    if (seen.has(url)) return false;
+    seen.add(url);
+    return true;
+  });
+
+  if (!uniqueLinks.length) {
     sendStatus('no_courses_with_deadlines');
     return;
   }
 
-  sendStatus('fetching', `${courseLinks.length} 授業を処理します`);
+  sendStatus('fetching', `${uniqueLinks.length} 授業を処理します`);
 
   const assignments = [];
 
-  for (const { url: courseUrl, courseName } of courseLinks) {
+  for (const { url: courseUrl, courseName } of uniqueLinks) {
     const courseId = extractCourseId(courseUrl);
 
     try {
